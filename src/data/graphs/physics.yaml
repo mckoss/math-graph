@@ -1,0 +1,159 @@
+# A compact second domain used to exercise Knowledge Graph's domain switcher.
+
+metadata:
+  id: physics
+  topic: Physics
+  description: "A starter map of physical science, from measurement and motion to fields and quantum ideas."
+
+maturityLevels:
+  - id: foundational
+    label: Foundational
+    order: 1
+    color: "#d9920f"
+    tint: "#fff3d6"
+    description: "Core quantitative foundations"
+  - id: secondary
+    label: Secondary
+    order: 2
+    color: "#d95f38"
+    tint: "#fde8df"
+    description: "Introductory school physics"
+  - id: undergraduate
+    label: Undergraduate
+    order: 3
+    color: "#2f6fc2"
+    tint: "#e5eef9"
+    description: "University-level foundations"
+
+groups:
+  - id: physical-foundations
+    label: "Physical Foundations"
+    maturityLevel: foundational
+    wikipedia: Physics
+    description: "Measurement, units, and quantitative descriptions of the physical world."
+  - id: classical-mechanics
+    label: "Classical Mechanics"
+    maturityLevel: secondary
+    wikipedia: Classical_mechanics
+    description: "Motion, forces, energy, and momentum in everyday-scale systems."
+  - id: waves-and-oscillations
+    label: "Waves & Oscillations"
+    maturityLevel: secondary
+    wikipedia: Wave
+    description: "Repeating motion and disturbances that carry energy."
+  - id: electromagnetism
+    label: "Electromagnetism"
+    maturityLevel: undergraduate
+    wikipedia: Electromagnetism
+    description: "Electric and magnetic fields and their unified behavior."
+  - id: quantum-physics
+    label: "Quantum Physics"
+    maturityLevel: undergraduate
+    wikipedia: Quantum_mechanics
+    description: "Physical behavior at atomic and subatomic scales."
+
+concepts:
+  - id: measurement
+    group: physical-foundations
+    label: Measurement
+    wikipedia: Measurement
+    maturityLevel: foundational
+    description: "Comparing a physical quantity with a defined standard."
+  - id: units
+    group: physical-foundations
+    label: Units
+    wikipedia: Unit_of_measurement
+    maturityLevel: foundational
+    description: "Standard quantities used to express measurements."
+  - id: scalars
+    group: physical-foundations
+    label: Scalars
+    wikipedia: Scalar_(physics)
+    maturityLevel: foundational
+    description: "Physical quantities described by magnitude alone."
+  - id: vectors
+    group: classical-mechanics
+    label: Vectors
+    wikipedia: Euclidean_vector
+    maturityLevel: secondary
+    description: "Quantities described by both magnitude and direction."
+  - id: motion
+    group: classical-mechanics
+    label: Motion
+    wikipedia: Motion
+    maturityLevel: secondary
+    description: "Change in an object's position over time."
+  - id: force
+    group: classical-mechanics
+    label: Force
+    wikipedia: Force
+    maturityLevel: secondary
+    description: "An interaction that changes an object's motion."
+  - id: energy
+    group: classical-mechanics
+    label: Energy
+    wikipedia: Energy
+    maturityLevel: secondary
+    description: "A conserved capacity for causing physical change."
+  - id: momentum
+    group: classical-mechanics
+    label: Momentum
+    wikipedia: Momentum
+    maturityLevel: secondary
+    description: "The product of an object's mass and velocity."
+  - id: oscillation
+    group: waves-and-oscillations
+    label: Oscillation
+    wikipedia: Oscillation
+    maturityLevel: secondary
+    description: "Repeated variation around an equilibrium state."
+  - id: waves
+    group: waves-and-oscillations
+    label: Waves
+    wikipedia: Wave
+    maturityLevel: secondary
+    description: "Disturbances that transfer energy through space or matter."
+  - id: electric-charge
+    group: electromagnetism
+    label: Electric Charge
+    wikipedia: Electric_charge
+    maturityLevel: undergraduate
+    description: "The property of matter responsible for electric interactions."
+  - id: electric-fields
+    group: electromagnetism
+    label: Electric Fields
+    wikipedia: Electric_field
+    maturityLevel: undergraduate
+    description: "Fields describing the force that charge would experience."
+  - id: magnetic-fields
+    group: electromagnetism
+    label: Magnetic Fields
+    wikipedia: Magnetic_field
+    maturityLevel: undergraduate
+    description: "Fields produced by moving charges and magnetic materials."
+  - id: wave-particle-duality
+    group: quantum-physics
+    label: Wave–Particle Duality
+    wikipedia: Wave%E2%80%93particle_duality
+    maturityLevel: undergraduate
+    description: "Quantum objects exhibit both wave-like and particle-like behavior."
+  - id: quantum-states
+    group: quantum-physics
+    label: Quantum States
+    wikipedia: Quantum_state
+    maturityLevel: undergraduate
+    description: "Mathematical descriptions of the possible condition of a quantum system."
+
+dependencies:
+  - measurement -> units -> scalars
+  - units -> vectors
+  - scalars -> motion
+  - vectors -> motion -> force
+  - motion -> momentum
+  - force -> energy
+  - motion -> oscillation -> waves
+  - force -> oscillation
+  - units -> electric-charge -> electric-fields
+  - vectors -> electric-fields -> magnetic-fields
+  - waves -> wave-particle-duality -> quantum-states
+  - energy -> quantum-states

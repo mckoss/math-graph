@@ -1,6 +1,9 @@
 import type { ConceptGraph } from './types';
 
-export const KNOWLEDGE_STORAGE_KEY = 'math-graph.knowledge-ratings.v1';
+export const LEGACY_MATH_KNOWLEDGE_STORAGE_KEY = 'math-graph.knowledge-ratings.v1';
+export function knowledgeStorageKey(graphId: string): string {
+  return `knowledge-graph:${graphId}:knowledge-ratings:v1`;
+}
 export const KNOWLEDGE_RATINGS = ['aware', 'familiar', 'mastered'] as const;
 export type KnowledgeRating = (typeof KNOWLEDGE_RATINGS)[number];
 export type KnowledgeRatings = Record<string, KnowledgeRating>;
@@ -11,9 +14,11 @@ function isKnowledgeRating(value: unknown): value is KnowledgeRating {
 
 export function loadKnowledgeRatings(
   storage: Pick<Storage, 'getItem'>,
+  graphId: string,
 ): KnowledgeRatings {
   try {
-    const raw = storage.getItem(KNOWLEDGE_STORAGE_KEY);
+    const raw = storage.getItem(knowledgeStorageKey(graphId)) ??
+      (graphId === 'math' ? storage.getItem(LEGACY_MATH_KNOWLEDGE_STORAGE_KEY) : null);
     if (raw === null) return {};
     const parsed: unknown = JSON.parse(raw);
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
@@ -30,8 +35,9 @@ export function loadKnowledgeRatings(
 export function saveKnowledgeRatings(
   storage: Pick<Storage, 'setItem'>,
   ratings: KnowledgeRatings,
+  graphId: string,
 ): void {
-  storage.setItem(KNOWLEDGE_STORAGE_KEY, JSON.stringify(ratings));
+  storage.setItem(knowledgeStorageKey(graphId), JSON.stringify(ratings));
 }
 
 /** Leaf concept ids affected by evaluating a concept or recursive group. */

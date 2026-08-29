@@ -1,31 +1,28 @@
-# Math Graph
+# Knowledge Graph
 
-An interactive mathematics knowledge explorer showing how concepts depend on
-each other: a zoomable directed graph running from counting and the natural
-numbers through high-school and early undergraduate mathematics.
+An interactive, domain-independent explorer showing how concepts depend on one
+another. Select a topic, zoom through its directed knowledge graph, and expand
+broad groups in place to inspect their internal concepts.
 
 **Live site:** https://mckoss.com/math-graph/
 
-Every arrow points from a foundational concept to one that builds on it — you
-can't really understand the target of an arrow until you understand its source.
-Broad groups (Algebra, Calculus, Linear Algebra, …) can be expanded in
-place to reveal their own internal network of concepts, and every node links to
-its Wikipedia article.
+Every arrow points from foundational knowledge to something that builds on it.
+The repository currently bundles a substantial Math graph and a compact Physics
+graph that exercises domain switching. Adding another YAML graph automatically
+adds it to the topic selector without an application-code registry change.
 
-Inspired by thinking about how mathematical understanding is built up layer by
-layer — one concept at a time, each resting on those beneath it.
+The deployed route retains the repository's historical `/math-graph/` path;
+that path is deployment identity, not an engine-level subject assumption.
 
 ## How it works
 
-- **The knowledge base is data, not code.** The entire graph is described in
-  one commented YAML file:
-  [`src/data/knowledge-base.yaml`](src/data/knowledge-base.yaml). See
-  [`docs/SCHEMA.md`](docs/SCHEMA.md) for the format. Adding a concept or a
-  dependency, written as a readable chain like
-  `counting -> natural-numbers -> integers`, is a one-line edit — no
-  JavaScript required.
+- **Knowledge graphs are data, not code.** Each independent graph is a commented
+  YAML file under [`src/data/graphs/`](src/data/graphs). See
+  [`docs/SCHEMA.md`](docs/SCHEMA.md) for the format. Add a file with unique
+  metadata, levels, groups, concepts, and dependency chains; the application
+  discovers it automatically.
 - **The loader** ([`src/lib/knowledge-base/`](src/lib/knowledge-base)) uses a
-  standard YAML library and turns the result into a plain `ConceptGraph`. The
+  standard YAML library and turns each result into a plain `ConceptGraph`. The
   checked-in JSON Schema and unit checks validate its structure and semantic
   rules such as unique ids, valid edge references, and dependency cycles.
 - **The visualization** ([`src/lib/viz/`](src/lib/viz)) renders the graph with
@@ -49,7 +46,9 @@ Pushes to `main` trigger the [Pages workflow](.github/workflows/deploy.yml),
 which runs the tests, builds the static bundle with Vite, and deploys it to
 GitHub Pages.
 
-## Contributing concepts
+## Contributing a graph
 
-Edit `src/data/knowledge-base.yaml`. The schema and semantic unit checks catch
-typos, dangling references, and accidental dependency cycles before they ship.
+Edit an existing file or add a new `.yaml` file under `src/data/graphs/`. The
+schema and semantic unit checks catch malformed metadata, typos, dangling
+references, cross-zone groups, and accidental dependency cycles before they
+ship. Dataset ids also isolate browser-owned ratings and future layout state.

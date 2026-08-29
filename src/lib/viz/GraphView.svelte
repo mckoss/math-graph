@@ -3,7 +3,7 @@
   import cytoscape from 'cytoscape';
   import dagre from 'cytoscape-dagre';
   import type { DagreLayoutOptions } from 'cytoscape-dagre';
-  import type { ConceptGraph, GraphNode, MaturityLevel } from '../types';
+  import type { ConceptEdge, ConceptGraph, GraphNode, MaturityLevel } from '../types';
   import {
     ancestorsOf,
     childrenByParent,
@@ -49,6 +49,11 @@
     type SpringNodeInput,
     type SpringSystem,
   } from './springs';
+  import {
+    constrainPointToVerticalDependencyOrder,
+    countVerticalDependencyOrderViolations,
+    enforceVerticalDependencyOrder,
+  } from './vertical-order';
 
   cytoscape.use(dagre);
 
@@ -73,6 +78,7 @@
   let focusAnchorDeltaX = $state(0);
   let surroundingPositionDrift = $state(0);
   let rootOverlapCount = $state(0);
+  let verticalOrderViolationCount = $state(0);
   let savedLayoutNodeCount = $state(0);
   let restoredLayoutNodeCount = $state(0);
   const savedGroupLayouts = new Map<string, Map<string, SavedLocalPosition>>();
@@ -85,11 +91,13 @@
     nodeCenterY: number;
     modelX: number;
     modelY: number;
+    modelHeight: number;
   }>>([]);
   let infoButtonFrame = 0;
 
   const FIT_PADDING = 36;
   const LAYOUT_MS = 480;
+  const DEPENDENCY_GAP = 12;
 
   function containerSize(): Size {
     return { width: container.clientWidth, height: container.clientHeight };
@@ -247,6 +255,7 @@
     c.nodes(':parent').ungrabify();
     c.nodes().not(':parent').grabify();
     compoundGroupCount = c.nodes(':parent').length;
+    rootOverlapCount = countRootUnitOverlaps(c);
 
     runLayout(
       oldPos.size === 0,
@@ -266,6 +275,11 @@
       return;
     }
     compoundGroupCount = c.nodes(':parent').length;
+    verticalOrderViolationCount = countVerticalDependencyOrderViolations(
+      currentLeafPositions(c),
+      currentVisibleEdges(c),
+      verticalSeparation(c),
+    );
     infoButtons = c.nodes().map((node: cytoscape.NodeSingular) => {
       const box = node.renderedBoundingBox({ includeLabels: false, includeOverlays: false });
       return {
@@ -277,6 +291,7 @@
         nodeCenterY: (box.y1 + box.y2) / 2,
         modelX: node.position().x,
         modelY: node.position().y,
+        modelHeight: node.outerHeight(),
       };
     });
   }
@@ -307,10 +322,9 @@
   let layoutMode = $state<'flow' | 'bounded'>('flow');
 
   function maturityBandLabel(level: MaturityLevel): string {
-    const range = level.gradeRange;
-    return range === undefined
+    return level.displaySuffix === undefined
       ? level.label
-      : `${level.label} · grades ${range.from}–${range.to}`;
+      : `${level.label} · ${level.displaySuffix}`;
   }
 
   /** Project model-space band rectangles into rendered CSS coordinates. */
@@ -414,9 +428,9 @@
     }
   }
 
-  function countRootUnitOverlaps(c: cytoscape.Core, gap = 17.5): number {
+  function rootUnitOverlapPairs(c: cytoscape.Core, gap = 17.5): string[] {
     const roots = c.nodes().filter((node) => node.parent().empty());
-    let count = 0;
+    const pairs: string[] = [];
     for (let i = 0; i < roots.length; i++) {
       for (let j = i + 1; j < roots.length; j++) {
         const a = roots[i].boundingBox({ includeLabels: true, includeOverlays: false });
@@ -424,10 +438,74 @@
         if (
           Math.min(a.x2, b.x2) - Math.max(a.x1, b.x1) + gap > 0 &&
           Math.min(a.y2, b.y2) - Math.max(a.y1, b.y1) + gap > 0
-        ) count++;
+        ) pairs.push(`${roots[i].id()}->${roots[j].id()}`);
       }
     }
-    return count;
+    return pairs;
+  }
+
+  function countRootUnitOverlaps(c: cytoscape.Core, gap = 17.5): number {
+    return rootUnitOverlapPairs(c, gap).length;
+  }
+
+  function resolveRootUnitOverlaps(
+    c: cytoscape.Core,
+    targets: Map<string, cytoscape.Position>,
+    anchoredRootId?: string,
+  ): number {
+    const roots = c.nodes().filter((node) => node.parent().empty());
+    const anchorX = anchoredRootId === undefined
+      ? 0
+      : c.getElementById(anchoredRootId).position().x;
+    const shiftRoot = (root: cytoscape.NodeSingular, dx: number): void => {
+      const leaves = root.isParent() ? root.descendants().not(':parent') : root;
+      leaves.forEach((leaf: cytoscape.NodeSingular) => {
+        const shifted = { x: leaf.position().x + dx, y: leaf.position().y };
+        leaf.position(shifted);
+        targets.set(leaf.id(), shifted);
+      });
+    };
+    const maxPasses = Math.max(8, roots.length * roots.length * 2);
+    for (let pass = 0; pass < maxPasses; pass++) {
+      separateRootUnits(c, targets, 18, anchoredRootId);
+      let collision: [cytoscape.NodeSingular, cytoscape.NodeSingular] | undefined;
+      for (let left = 0; left < roots.length && collision === undefined; left++) {
+        for (let right = left + 1; right < roots.length; right++) {
+          const a = roots[left];
+          const b = roots[right];
+          const ab = a.boundingBox({ includeLabels: true, includeOverlays: false });
+          const bb = b.boundingBox({ includeLabels: true, includeOverlays: false });
+          if (
+            Math.min(ab.x2, bb.x2) - Math.max(ab.x1, bb.x1) + 18 > 0 &&
+            Math.min(ab.y2, bb.y2) - Math.max(ab.y1, bb.y1) + 18 > 0
+          ) {
+            collision = [a, b];
+            break;
+          }
+        }
+      }
+      if (collision === undefined) return 0;
+
+      const [a, b] = collision;
+      const moving = a.id() === anchoredRootId
+        ? b
+        : b.id() === anchoredRootId
+          ? a
+          : Math.abs(a.position().x - anchorX) > Math.abs(b.position().x - anchorX)
+            ? a
+            : b;
+      const fixed = moving === a ? b : a;
+      const movingBox = moving.boundingBox({ includeLabels: true, includeOverlays: false });
+      const fixedBox = fixed.boundingBox({ includeLabels: true, includeOverlays: false });
+      const direction = moving.position().x === fixed.position().x
+        ? (moving.id() < fixed.id() ? -1 : 1)
+        : Math.sign(moving.position().x - fixed.position().x);
+      const dx = direction < 0
+        ? fixedBox.x1 - 18 - movingBox.x2
+        : fixedBox.x2 + 18 - movingBox.x1;
+      shiftRoot(moving, dx);
+    }
+    return countRootUnitOverlaps(c);
   }
 
   function focusedNodeBoxes(focusNode: cytoscape.NodeSingular): Array<{
@@ -462,8 +540,7 @@
     c.nodes().not(':parent').forEach((node) => {
       targets.set(node.id(), { ...node.position() });
     });
-    separateRootUnits(c, targets, 18, anchoredRootId);
-    rootOverlapCount = countRootUnitOverlaps(c);
+    rootOverlapCount = resolveRootUnitOverlaps(c, targets, anchoredRootId);
     layoutBounds = targetBBox(c, targets);
     scheduleInfoButtons();
   }
@@ -499,6 +576,91 @@
     bandModelRects = result.bands;
     result.positions.forEach((point, id) => targets.set(id, point));
     nodes.positions((node) => targets.get(node.id()) ?? node.position());
+  }
+
+  function currentVisibleEdges(c: cytoscape.Core): ConceptEdge[] {
+    return c.edges().map((edge: cytoscape.EdgeSingular) => ({
+      from: edge.data('source') as string,
+      to: edge.data('target') as string,
+    }));
+  }
+
+  function currentLeafPositions(c: cytoscape.Core): Map<string, cytoscape.Position> {
+    const positions = new Map<string, cytoscape.Position>();
+    c.nodes().not(':parent').forEach((node) => {
+      positions.set(node.id(), { ...node.position() });
+    });
+    return positions;
+  }
+
+  function verticalSeparation(c: cytoscape.Core): (edge: ConceptEdge) => number {
+    return (edge) => {
+      const prerequisite = c.getElementById(edge.from);
+      const dependent = c.getElementById(edge.to);
+      if (prerequisite.empty() || dependent.empty()) return DEPENDENCY_GAP;
+      return (prerequisite.outerHeight() + dependent.outerHeight()) / 2 + DEPENDENCY_GAP;
+    };
+  }
+
+  /** Apply hard prerequisite order, then resolve any resulting collision horizontally. */
+  function enforceVerticalOrderForTargets(
+    nodes: cytoscape.NodeCollection,
+    targets: Map<string, cytoscape.Position>,
+  ): void {
+    const c = cy;
+    if (!c) return;
+    const separation = verticalSeparation(c);
+    const ordered = enforceVerticalDependencyOrder(targets, currentVisibleEdges(c), separation);
+    ordered.forEach((point, id) => targets.set(id, point));
+
+    for (let band = 0; band < bandModelRects.length; band++) {
+      const members = nodes
+        .filter((node) => (bandAssignments.get(node.id()) ?? 0) === band)
+        .map((node: cytoscape.NodeSingular) => ({
+          id: node.id(),
+          band,
+          point: targets.get(node.id()) ?? node.position(),
+          width: node.outerWidth(),
+          height: node.outerHeight(),
+        }))
+        .sort((a, b) => a.point.y - b.point.y || a.point.x - b.point.x || a.id.localeCompare(b.id));
+      if (members.length === 0) continue;
+      const separated = separateMaturityPeersFromPinned(members[0], members.slice(1), 10);
+      separated.forEach((point, id) => targets.set(id, point));
+    }
+    verticalOrderViolationCount = countVerticalDependencyOrderViolations(
+      targets,
+      currentVisibleEdges(c),
+      separation,
+    );
+  }
+
+  /** Push only violating dependents down; the relaxation never changes prerequisites. */
+  function pushViolatingDependentsDown(): void {
+    const c = cy;
+    if (!c) return;
+    const nodes = c.nodes().not(':parent');
+    const targets = currentLeafPositions(c);
+    enforceVerticalOrderForTargets(nodes, targets);
+    nodes.positions((node) => targets.get(node.id()) ?? node.position());
+  }
+
+  /** Restore an expanded compound's horizontal anchor after child collision resolution. */
+  function anchorFocusedGroupX(
+    focusNode: cytoscape.NodeSingular,
+    anchorX: number,
+    targets: Map<string, cytoscape.Position>,
+  ): void {
+    const descendants = focusNode.descendants().not(':parent');
+    descendants.positions((node) => targets.get(node.id()) ?? node.position());
+    const dx = anchorX - focusNode.position().x;
+    if (Math.abs(dx) <= 1e-6) return;
+    descendants.forEach((leaf: cytoscape.NodeSingular) => {
+      const point = targets.get(leaf.id()) ?? leaf.position();
+      const anchored = { x: point.x + dx, y: point.y };
+      leaf.position(anchored);
+      targets.set(leaf.id(), anchored);
+    });
   }
 
   function deriveBandsFromVisibleNodes(anchoredNodeId?: string): void {
@@ -733,18 +895,11 @@
         packFocusedDescendants(styledFocusNode, focusAnchor.x, targets);
       }
       layoutNodes.positions((node) => targets.get(node.id()) ?? node.position());
-      const anchorCorrection = focusAnchor.x - styledFocusNode.position().x;
-      if (Math.abs(anchorCorrection) > 1e-6) {
-        styledFocusNode.descendants().not(':parent').forEach((leaf: cytoscape.NodeSingular) => {
-          const point = targets.get(leaf.id()) ?? leaf.position();
-          const anchored = { x: point.x + anchorCorrection, y: point.y };
-          leaf.position(anchored);
-          targets.set(leaf.id(), anchored);
-        });
-      }
+      anchorFocusedGroupX(styledFocusNode, focusAnchor.x, targets);
+      enforceVerticalOrderForTargets(layoutNodes, targets);
+      anchorFocusedGroupX(styledFocusNode, focusAnchor.x, targets);
       deriveBandsForTargets(layoutNodes, targets);
-      separateRootUnits(c, targets, 18, focusId);
-      rootOverlapCount = countRootUnitOverlaps(c);
+      rootOverlapCount = resolveRootUnitOverlaps(c, targets, focusId);
       bandModelRects = bandModelRects.map((rect) => ({
         ...rect,
         count: layoutNodes.filter(
@@ -790,6 +945,7 @@
       } as unknown as cytoscape.LayoutOptions);
       runningLayout = preset;
       preset.run();
+      layoutNodes.grabify();
       animateViewport(c, viewportBounds, size, true, 0.9, layoutBounds);
       return;
     }
@@ -810,6 +966,7 @@
       fit: false,
     };
     c.layout(options as unknown as cytoscape.LayoutOptions).run();
+    layoutNodes.grabify();
 
     const raw = new Map<string, cytoscape.Position>();
     layoutNodes.forEach((node) => {
@@ -887,16 +1044,14 @@
     layoutNodes.positions((node) => targets.get(node.id()) ?? node.position());
     const focusNode = focusId === undefined ? undefined : c.getElementById(focusId);
     if (focusNode?.nonempty() && focusAnchor !== undefined && focusNode.isParent()) {
-      const dx = focusAnchor.x - focusNode.position().x;
-      focusNode.descendants().not(':parent').forEach((leaf: cytoscape.NodeSingular) => {
-        const point = targets.get(leaf.id()) ?? leaf.position();
-        const anchored = { x: point.x + dx, y: point.y };
-        leaf.position(anchored);
-        targets.set(leaf.id(), anchored);
-      });
+      anchorFocusedGroupX(focusNode, focusAnchor.x, targets);
+    }
+    enforceVerticalOrderForTargets(layoutNodes, targets);
+    if (focusNode?.nonempty() && focusAnchor !== undefined && focusNode.isParent()) {
+      anchorFocusedGroupX(focusNode, focusAnchor.x, targets);
     }
     deriveBandsForTargets(layoutNodes, targets);
-    separateRootUnits(c, targets, 18, focusId);
+    rootOverlapCount = resolveRootUnitOverlaps(c, targets, focusId);
     layoutBounds = targetBBox(c, targets);
     focusAnchorDeltaX =
       focusNode?.nonempty() && focusAnchor !== undefined
@@ -916,7 +1071,7 @@
 
     if (first) {
       layoutNodes.positions((node) => targets.get(node.id()) ?? node.position());
-      animateViewport(c, viewportBounds, size, false, focusBox ? 0.9 : dense ? 0.75 : 0, layoutBounds);
+      animateViewport(c, viewportBounds, size, false, focusBox ? 0.9 : 0.75, layoutBounds);
       updateBandStripes();
       return;
     }
@@ -935,13 +1090,15 @@
     } as unknown as cytoscape.LayoutOptions);
     runningLayout = preset;
     preset.run();
-    animateViewport(c, viewportBounds, size, true, focusBox ? 0.9 : dense ? 0.75 : 0, layoutBounds);
+    layoutNodes.grabify();
+    animateViewport(c, viewportBounds, size, true, focusBox ? 0.9 : 0.75, layoutBounds);
   }
 
   // ---- Drag springs --------------------------------------------------------
 
   let springSystem: SpringSystem | undefined;
   let springNodes: cytoscape.NodeSingular[] = [];
+  let springUpstreamIds = new Set<string>();
   let anchorNode: cytoscape.NodeSingular | undefined;
   let dragFrameId = 0;
   let settleFrameId = 0;
@@ -953,14 +1110,24 @@
     point: cytoscape.Position,
     resizeBand = false,
   ): cytoscape.Position {
+    const c = cy;
+    const dependencyPoint = c === undefined
+      ? point
+      : constrainPointToVerticalDependencyOrder(
+          node.id(),
+          point,
+          currentLeafPositions(c),
+          currentVisibleEdges(c),
+          verticalSeparation(c),
+        );
     const bandIndex = bandAssignments.get(node.id()) ?? 0;
-    if (resizeBand) return point;
+    if (resizeBand) return dependencyPoint;
     const band = bandModelRects[bandIndex];
-    if (band === undefined || node.isParent()) return point;
+    if (band === undefined || node.isParent()) return dependencyPoint;
     const moving = {
       id: node.id(),
       band: bandIndex,
-      point,
+      point: dependencyPoint,
       width: node.outerWidth(),
       height: node.outerHeight(),
     };
@@ -973,7 +1140,21 @@
         width: candidate.outerWidth(),
         height: candidate.outerHeight(),
       })) ?? [];
-    return constrainPointAgainstMaturityBandNodes(moving, point, others, band);
+    const collisionSafe = constrainPointAgainstMaturityBandNodes(
+      moving,
+      dependencyPoint,
+      others,
+      band,
+    );
+    return c === undefined
+      ? collisionSafe
+      : constrainPointToVerticalDependencyOrder(
+          node.id(),
+          collisionSafe,
+          currentLeafPositions(c),
+          currentVisibleEdges(c),
+          verticalSeparation(c),
+        );
   }
 
   function cancelSprings(): void {
@@ -984,6 +1165,7 @@
     dragPending = false;
     springSystem = undefined;
     springNodes = [];
+    springUpstreamIds = new Set();
     anchorNode = undefined;
   }
 
@@ -1007,6 +1189,21 @@
       frontier = next;
     }
     if (ordered.length < 2) return;
+
+    const incomingByTarget = new Map<string, string[]>();
+    for (const edge of currentVisibleEdges(c)) {
+      const incoming = incomingByTarget.get(edge.to) ?? [];
+      incoming.push(edge.from);
+      incomingByTarget.set(edge.to, incoming);
+    }
+    springUpstreamIds = new Set();
+    const upstreamFrontier = [...(incomingByTarget.get(node.id()) ?? [])];
+    while (upstreamFrontier.length > 0) {
+      const id = upstreamFrontier.pop()!;
+      if (springUpstreamIds.has(id)) continue;
+      springUpstreamIds.add(id);
+      upstreamFrontier.push(...(incomingByTarget.get(id) ?? []));
+    }
 
     const index = new Map(ordered.map((candidate, i) => [candidate.id(), i]));
     const inputs: SpringNodeInput[] = ordered.map((candidate) => {
@@ -1036,6 +1233,11 @@
     if (!c || !system) return;
     c.batch(() => {
       for (let i = 1; i < springNodes.length; i++) {
+        if (springUpstreamIds.has(springNodes[i].id())) {
+          system.x[i] = springNodes[i].position().x;
+          system.y[i] = springNodes[i].position().y;
+          continue;
+        }
         const point = constrainedPoint(springNodes[i], { x: system.x[i], y: system.y[i] });
         system.x[i] = point.x;
         system.y[i] = point.y;
@@ -1053,6 +1255,7 @@
     setAnchor(springSystem, point.x, point.y);
     springStep(springSystem);
     writeSpringPositions();
+    pushViolatingDependentsDown();
     movePeersFromDraggedNode(anchorNode);
     deriveBandsFromVisibleNodes(anchorNode.id());
   }
@@ -1065,6 +1268,7 @@
     setAnchor(springSystem, point.x, point.y);
     springStep(springSystem, undefined, scale);
     writeSpringPositions();
+    pushViolatingDependentsDown();
     movePeersFromDraggedNode(anchorNode);
     deriveBandsFromVisibleNodes(anchorNode.id());
     if (scale > 0.05) {
@@ -1274,6 +1478,7 @@
     c.on('drag', 'node', (e) => {
       const point = constrainedPoint(e.target, e.target.position(), true);
       e.target.position(point);
+      pushViolatingDependentsDown();
       movePeersFromDraggedNode(e.target);
       deriveBandsFromVisibleNodes(e.target.id());
       if (!springSystem || !anchorNode || e.target !== anchorNode) return;
@@ -1283,6 +1488,7 @@
     c.on('free', 'node', (e) => {
       const point = constrainedPoint(e.target, e.target.position(), true);
       e.target.position(point);
+      pushViolatingDependentsDown();
       movePeersFromDraggedNode(e.target);
       deriveBandsFromVisibleNodes(e.target.id());
       const isSpringAnchor = springSystem && anchorNode && e.target === anchorNode;
@@ -1358,10 +1564,11 @@
   data-focus-anchor-delta-x={focusAnchorDeltaX}
   data-surrounding-position-drift={surroundingPositionDrift}
   data-root-overlap-count={rootOverlapCount}
+  data-vertical-order-violation-count={verticalOrderViolationCount}
   data-saved-layout-node-count={savedLayoutNodeCount}
   data-restored-layout-node-count={restoredLayoutNodeCount}
 >
-  <div class="bands" role="list" aria-label="Maturity levels">
+  <div class="bands" role="list" aria-label="Knowledge levels">
     {#each bandStripes as stripe (stripe.level.id)}
       <div
         class="band"
@@ -1376,7 +1583,11 @@
       </div>
     {/each}
   </div>
-  <div class="graph" aria-label="Mathematics dependency graph" bind:this={container}></div>
+  <div
+    class="graph"
+    aria-label={`${graph.metadata.topic} knowledge dependency graph`}
+    bind:this={container}
+  ></div>
   <div class="node-info-layer">
     {#each infoButtons as button (button.id)}
       <button
@@ -1388,6 +1599,7 @@
         data-node-center-y={button.nodeCenterY}
         data-node-model-x={button.modelX}
         data-node-model-y={button.modelY}
+        data-node-model-height={button.modelHeight}
         style:left={`${button.left}px`}
         style:top={`${button.top}px`}
         onclick={(event) => {

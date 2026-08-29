@@ -7,6 +7,7 @@ import type {
   ConceptGraph,
   ConceptHistory,
   GraphNode,
+  KnowledgeGraphMetadata,
   MaturityLevel,
 } from '../types';
 
@@ -30,6 +31,7 @@ interface SourceGroup {
 }
 
 interface KnowledgeBaseDocument {
+  metadata?: KnowledgeGraphMetadata;
   maturityLevels?: MaturityLevel[];
   groups?: SourceGroup[];
   concepts?: SourceConcept[];
@@ -90,5 +92,10 @@ export function loadKnowledgeBase(source: string): ConceptGraph {
     }
   }
 
-  return { maturityLevels: document.maturityLevels ?? [], nodes, edges };
+  return {
+    metadata: document.metadata ?? { id: 'unknown', topic: 'Untitled' },
+    maturityLevels: document.maturityLevels ?? [],
+    nodes,
+    edges,
+  };
 }

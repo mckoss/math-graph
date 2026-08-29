@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import type { ConceptGraph, GraphNode } from './lib/types';
+  import { SITE_TITLE } from './lib/site';
   import {
     applyKnowledgeRating,
     KNOWLEDGE_RATINGS,
@@ -20,7 +21,11 @@
     nodesById,
   } from './lib/viz/graph-model';
 
-  let { graph }: { graph: ConceptGraph } = $props();
+  let { graphs }: { graphs: ConceptGraph[] } = $props();
+  let selectedGraphId = $state('');
+  const graph = $derived(
+    graphs.find((candidate) => candidate.metadata.id === selectedGraphId) ?? graphs[0],
+  );
 
   let selectedId = $state<string | null>(null);
   let expanded = $state<ReadonlySet<string>>(new Set());
@@ -96,11 +101,19 @@
   function setKnowledgeRating(rating: KnowledgeRating): void {
     if (selectedId === null) return;
     knowledgeRatings = applyKnowledgeRating(graph, knowledgeRatings, selectedId, rating);
-    saveKnowledgeRatings(localStorage, knowledgeRatings);
+    saveKnowledgeRatings(localStorage, knowledgeRatings, graph.metadata.id);
+  }
+
+  function selectGraph(id: string): void {
+    selectedGraphId = id;
+    selectedId = null;
+    expanded = new Set();
+    knowledgeRatings = loadKnowledgeRatings(localStorage, id);
   }
 
   onMount(() => {
-    knowledgeRatings = loadKnowledgeRatings(localStorage);
+    selectedGraphId = graph.metadata.id;
+    knowledgeRatings = loadKnowledgeRatings(localStorage, graph.metadata.id);
   });
 </script>
 
@@ -108,10 +121,21 @@
   <header class="masthead">
     <div class="masthead-text">
       <div class="masthead-titleline">
-        <h1>Math Graph</h1>
+        <h1>{SITE_TITLE}</h1>
         <span class="version">v{__APP_VERSION__}</span>
       </div>
-      <p class="tagline">An interactive mathematics knowledge explorer — from counting to calculus.</p>
+      <label class="domain-selector">
+        <span class="sr-only">Knowledge domain</span>
+        <select
+          aria-label="Knowledge domain"
+          value={selectedGraphId}
+          onchange={(event) => selectGraph(event.currentTarget.value)}
+        >
+          {#each graphs as candidate (candidate.metadata.id)}
+            <option value={candidate.metadata.id}>{candidate.metadata.topic}</option>
+          {/each}
+        </select>
+      </label>
     </div>
     <div class="masthead-stats">
       <span><strong>{conceptCount}</strong> concepts</span>
@@ -121,14 +145,16 @@
   </header>
 
   <main class="graph-area">
-    <GraphView
-      bind:this={graphView}
-      {graph}
-      {expanded}
-      {selectedId}
-      onSelect={selectNode}
-      onToggleGroup={toggleGroup}
-    />
+    {#key graph.metadata.id}
+      <GraphView
+        bind:this={graphView}
+        {graph}
+        {expanded}
+        {selectedId}
+        onSelect={selectNode}
+        onToggleGroup={toggleGroup}
+      />
+    {/key}
 
     <p class="sr-only" role="status" aria-live="polite">
       Showing {visibleGraph.nodes.length} nodes and {visibleGraph.edges.length} connections.
@@ -294,10 +320,35 @@
     letter-spacing: 0.04em;
     color: var(--cream-dim);
   }
-  .tagline {
-    margin: 4px 0 0;
-    font-size: 13.5px;
+  .domain-selector {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    margin-top: 3px;
+  }
+  .domain-selector::after {
+    content: '▾';
+    position: absolute;
+    right: 2px;
     color: var(--cream-dim);
+    pointer-events: none;
+  }
+  .domain-selector select {
+    appearance: none;
+    border: 0;
+    border-bottom: 1px solid transparent;
+    border-radius: 0;
+    padding: 0 18px 1px 0;
+    background: transparent;
+    color: var(--cream-dim);
+    font: 500 13.5px/1.5 var(--sans);
+    cursor: pointer;
+  }
+  .domain-selector select:hover,
+  .domain-selector select:focus-visible {
+    border-bottom-color: var(--gold);
+    color: var(--cream);
+    outline: none;
   }
   .masthead-stats {
     flex: none;

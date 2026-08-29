@@ -5,10 +5,12 @@ import {
   loadUserState,
   sanitizeUserState,
   saveUserState,
-  STORAGE_KEY,
+  userStorageKey,
   UserStore,
   type StorageLike,
 } from './user-store';
+
+const STORAGE_KEY = userStorageKey('default');
 
 function memoryStorage(initial?: Record<string, string>): StorageLike & { data: Map<string, string> } {
   const data = new Map(Object.entries(initial ?? {}));

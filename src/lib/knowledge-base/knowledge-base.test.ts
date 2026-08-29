@@ -3,17 +3,28 @@ import { describe, expect, it } from 'vitest';
 import { parse } from 'yaml';
 
 import schema from '../../data/knowledge-base.schema.json';
-import knowledgeBaseRaw from '../../data/knowledge-base.yaml?raw';
 import type { ConceptEdge, ConceptGraph, GraphNode } from '../types';
+import { loadKnowledgeGraphCatalog } from './catalog';
 import { loadKnowledgeBase } from './load';
 
 const validate = new Ajv({ allErrors: true }).compile(schema);
-const sourceDocument = parse(knowledgeBaseRaw, { uniqueKeys: true });
-const graph = loadKnowledgeBase(knowledgeBaseRaw);
+const bundledSources = import.meta.glob('../../data/graphs/*.yaml', {
+  eager: true,
+  import: 'default',
+  query: '?raw',
+}) as Record<string, string>;
+const bundledDocuments = Object.entries(bundledSources).map(([path, source]) => ({
+  path,
+  document: parse(source, { uniqueKeys: true }),
+}));
+const bundledGraphs = loadKnowledgeGraphCatalog(bundledSources);
+const graph = bundledGraphs.find((candidate) => candidate.metadata.id === 'math');
+if (!graph) throw new Error('Bundled Math graph not found');
 const groups = graph.nodes.filter((node) => node.isGroup);
 const concepts = graph.nodes.filter((node) => !node.isGroup);
 
 const minimalDocument = {
+  metadata: { id: 'example', topic: 'Example' },
   maturityLevels: [
     { id: 'elementary', label: 'Elementary', order: 1, color: '#111111', tint: '#eeeeee' },
   ],
@@ -64,8 +75,11 @@ function cycleIn(edges: ConceptEdge[]): string[] | null {
 }
 
 describe('knowledge-base schema', () => {
-  it('accepts the canonical YAML document', () => {
-    expect(validate(sourceDocument), JSON.stringify(validate.errors, null, 2)).toBe(true);
+  it('accepts every bundled graph dataset', () => {
+    expect(bundledDocuments.length).toBeGreaterThanOrEqual(2);
+    for (const { path, document } of bundledDocuments) {
+      expect(validate(document), `${path}: ${JSON.stringify(validate.errors, null, 2)}`).toBe(true);
+    }
   });
 
   it('restricts history to concepts and excludes year zero', () => {
@@ -86,6 +100,9 @@ describe('loadKnowledgeBase', () => {
 
   it('mechanically flattens groups and expands dependency chains', () => {
     const loaded = loadKnowledgeBase([
+      'metadata:',
+      '  id: example',
+      '  topic: Example',
       'maturityLevels:',
       '  - id: elementary',
       '    label: Elementary',
@@ -114,6 +131,7 @@ describe('loadKnowledgeBase', () => {
     ].join('\n'));
 
     expect(loaded.maturityLevels).toHaveLength(1);
+    expect(loaded.metadata).toEqual({ id: 'example', topic: 'Example' });
     expect(loaded.nodes).toEqual([
       { id: 'basics', label: 'Basics', maturityLevel: 'elementary', isGroup: true },
       {
@@ -162,6 +180,37 @@ describe('loadKnowledgeBase', () => {
 });
 
 describe('knowledge-base graph invariants', () => {
+  it('loads every bundled graph with internally consistent hierarchy and dependencies', () => {
+    for (const bundledGraph of bundledGraphs) {
+      const levelIds = new Set(bundledGraph.maturityLevels.map((level) => level.id));
+      const nodesById = new Map(bundledGraph.nodes.map((node) => [node.id, node]));
+      expect(nodesById.size, bundledGraph.metadata.id).toBe(bundledGraph.nodes.length);
+
+      for (const node of bundledGraph.nodes) {
+        expect(levelIds.has(node.maturityLevel ?? ''), `${bundledGraph.metadata.id}:${node.id}`).toBe(
+          true,
+        );
+        if (node.parent !== undefined) {
+          const parent = nodesById.get(node.parent);
+          expect(parent?.isGroup, `${bundledGraph.metadata.id}:${node.id}`).toBe(true);
+          expect(node.maturityLevel, `${bundledGraph.metadata.id}:${node.id}`).toBe(
+            parent?.maturityLevel,
+          );
+        }
+      }
+
+      for (const edge of bundledGraph.edges) {
+        expect(nodesById.get(edge.from)?.isGroup, `${bundledGraph.metadata.id}:${edge.from}`).toBe(
+          false,
+        );
+        expect(nodesById.get(edge.to)?.isGroup, `${bundledGraph.metadata.id}:${edge.to}`).toBe(
+          false,
+        );
+      }
+      expect(cycleIn(bundledGraph.edges), bundledGraph.metadata.id).toBeNull();
+    }
+  });
+
   it('uses unique configured maturity levels and valid concept references', () => {
     const ids = graph.maturityLevels.map((level) => level.id);
     const orders = graph.maturityLevels.map((level) => level.order);

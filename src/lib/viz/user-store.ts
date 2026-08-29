@@ -14,7 +14,9 @@
  * flips, and graph changes.
  */
 
-export const STORAGE_KEY = 'math-graph:user:v1';
+export function userStorageKey(graphId: string): string {
+  return `knowledge-graph:${graphId}:user:v1`;
+}
 
 export type Bookmark = 'to-learn' | 'have-learned';
 
@@ -95,9 +97,9 @@ function defaultStorage(): StorageLike | null {
   }
 }
 
-export function loadUserState(storage: StorageLike | null): UserState {
+export function loadUserState(storage: StorageLike | null, graphId = 'default'): UserState {
   try {
-    const raw = storage?.getItem(STORAGE_KEY);
+    const raw = storage?.getItem(userStorageKey(graphId));
     if (raw === null || raw === undefined) return emptyUserState();
     return sanitizeUserState(JSON.parse(raw));
   } catch {
@@ -105,9 +107,13 @@ export function loadUserState(storage: StorageLike | null): UserState {
   }
 }
 
-export function saveUserState(state: UserState, storage: StorageLike | null): void {
+export function saveUserState(
+  state: UserState,
+  storage: StorageLike | null,
+  graphId = 'default',
+): void {
   try {
-    storage?.setItem(STORAGE_KEY, JSON.stringify(state));
+    storage?.setItem(userStorageKey(graphId), JSON.stringify(state));
   } catch {
     // Storage full/blocked: the app keeps working, persistence is best-effort.
   }
@@ -121,19 +127,21 @@ export class UserStore {
   readonly state: UserState;
   private readonly storage: StorageLike | null;
   private readonly debounceMs: number;
+  private readonly graphId: string;
   private timer: ReturnType<typeof setTimeout> | undefined;
 
-  constructor(storage: StorageLike | null = defaultStorage(), debounceMs = 400) {
+  constructor(storage: StorageLike | null = defaultStorage(), debounceMs = 400, graphId = 'default') {
     this.storage = storage;
     this.debounceMs = debounceMs;
-    this.state = loadUserState(storage);
+    this.graphId = graphId;
+    this.state = loadUserState(storage, graphId);
   }
 
   private schedule(): void {
     if (this.timer !== undefined) clearTimeout(this.timer);
     this.timer = setTimeout(() => {
       this.timer = undefined;
-      saveUserState(this.state, this.storage);
+      saveUserState(this.state, this.storage, this.graphId);
     }, this.debounceMs);
   }
 
@@ -142,7 +150,7 @@ export class UserStore {
     if (this.timer === undefined) return;
     clearTimeout(this.timer);
     this.timer = undefined;
-    saveUserState(this.state, this.storage);
+    saveUserState(this.state, this.storage, this.graphId);
   }
 
   /** Set (or with null, remove) the drag offset for one node. */
