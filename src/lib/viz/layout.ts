@@ -78,7 +78,9 @@ export const DEFAULT_FILL_CAPS: FillCaps = {
   // A modest compression keeps the composition vertical; the band-aware
   // collision pass separates enlarged blocks after this center transform.
   minCompressX: 0.5,
-  minCompressY: 0.5,
+  // Vertical compression can squeeze blocks together inside maturity bands.
+  // Let the viewport pan/zoom instead of violating block geometry.
+  minCompressY: 1,
 };
 
 /** Square viewports use the landscape profile to make use of their width. */

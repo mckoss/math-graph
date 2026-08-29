@@ -3,6 +3,8 @@ import type { ConceptGraph } from '../types';
 import {
   assignMaturityBands,
   clampPointToMaturityBand,
+  constrainPointAgainstMaturityBandNodes,
+  nodeBoxesOverlap,
   placeInMaturityBands,
   packMaturityBandNodes,
   separateMaturityBandNodes,
@@ -111,6 +113,12 @@ describe('placeInMaturityBands', () => {
     expect(result.bandRects[1].y1).toBeCloseTo(100);
     expect(result.bandRects[2].y1).toBeCloseTo(200);
   });
+
+  it('honors explicit data-derived band weights', () => {
+    const result = placeInMaturityBands(new Map(), new Map(), 0, 400, 2, [3, 1]);
+    expect(result.bandRects[0].y2 - result.bandRects[0].y1).toBeCloseTo(300);
+    expect(result.bandRects[1].y2 - result.bandRects[1].y1).toBeCloseTo(100);
+  });
 });
 
 describe('clampPointToMaturityBand', () => {
@@ -159,6 +167,37 @@ describe('separateMaturityBandNodes', () => {
   });
 });
 
+describe('constrainPointAgainstMaturityBandNodes', () => {
+  it('keeps a dragged block inside its band and out of peer blocks', () => {
+    const band = { band: 0, y1: 100, y2: 260, count: 2 };
+    const moving = {
+      id: 'moving',
+      band: 0,
+      point: { x: 0, y: 0 },
+      width: 120,
+      height: 50,
+    };
+    const peer = {
+      id: 'peer',
+      band: 0,
+      point: { x: 100, y: 180 },
+      width: 120,
+      height: 50,
+    };
+    const point = constrainPointAgainstMaturityBandNodes(
+      moving,
+      { x: 100, y: 180 },
+      [peer],
+      band,
+      10,
+    );
+
+    expect(point.y).toBeGreaterThanOrEqual(132);
+    expect(point.y).toBeLessThanOrEqual(228);
+    expect(nodeBoxesOverlap(moving, point, peer, peer.point, 10)).toBe(false);
+  });
+});
+
 describe('packMaturityBandNodes', () => {
   it('wraps dense nodes into rows bounded by the requested width', () => {
     const bands = [{ band: 0, y1: 0, y2: 300, count: 5 }];
@@ -174,5 +213,12 @@ describe('packMaturityBandNodes', () => {
 
     expect(Math.max(...points.map((point) => point.x)) - Math.min(...points.map((point) => point.x))).toBeLessThanOrEqual(220);
     expect(new Set(points.map((point) => point.y)).size).toBe(2);
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        expect(
+          nodeBoxesOverlap(nodes[i], result.get(nodes[i].id)!, nodes[j], result.get(nodes[j].id)!, 10),
+        ).toBe(false);
+      }
+    }
   });
 });

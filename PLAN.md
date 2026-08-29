@@ -50,9 +50,22 @@ the site displays it under the title.
   vertically, opens aligned to the earliest visible maturity band, and may
   require downward panning; the explicit Fit control remains the way to
   request a whole-graph overview.
+- Zoom and focused expansion prioritize readable local structure. Surrounding
+  blocks may move off-screen as the viewport focuses on an expanded group;
+  users can pan or use Fit to restore global context.
 - A node may move horizontally within the graph, but dragging and spring motion
   must clamp its vertical center and full block bounds to its data-assigned
   maturity band. Resizing and re-layout must preserve the same constraint.
+- Full block rectangles, including the configured gap, must never overlap.
+  Automatic layout, direct dragging, and spring-following motion all resolve
+  collisions without violating maturity-band bounds or dense-view width caps.
+- Expanding a group preserves the parent hierarchy: the group remains visible
+  as a containing group and its direct children appear inside it. Nested
+  subgroups remain nested groups rather than promoting descendants to top-level
+  graph nodes. This is a visualization state, not a separate schema type.
+- An expanded group container may span multiple maturity bands to contain its
+  children. Its child concepts remain constrained to their own data-assigned
+  bands; the collapsed group alone uses its derived representative band.
 - Dragging a node gives its visible two-hop neighborhood a subtle,
   distance-decayed spring response and a brief settling motion after release.
   Reduced-motion users receive direct node dragging without coupled animation.
@@ -83,6 +96,8 @@ the site displays it under the title.
    maturity-band drag boundaries, including viewport-width wrapping for dense
    views. Published as v0.2.3 with user authorization for continued visual
    review through `npm run dev`.
+   The v0.2.4 follow-up makes non-overlap a hard constraint for layout and
+   interaction.
 4. **Persistence and study controls:** locally persisted positions resilient to
    added or removed nodes, plus `to-learn` / `have-learned` bookmarks.
 5. **Graph meaning and history:** weighted aggregate group-edge styling,

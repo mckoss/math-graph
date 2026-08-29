@@ -99,6 +99,59 @@ export interface MaturityBandNodeBox {
   height: number;
 }
 
+export function nodeBoxesOverlap(
+  a: MaturityBandNodeBox,
+  aPoint: Point,
+  b: MaturityBandNodeBox,
+  bPoint: Point,
+  gap = 0,
+): boolean {
+  return (
+    Math.abs(aPoint.x - bPoint.x) < (a.width + b.width) / 2 + gap &&
+    Math.abs(aPoint.y - bPoint.y) < (a.height + b.height) / 2 + gap
+  );
+}
+
+/** Move one block to the nearest band-safe position that does not overlap peers. */
+export function constrainPointAgainstMaturityBandNodes(
+  moving: MaturityBandNodeBox,
+  desired: Point,
+  others: readonly MaturityBandNodeBox[],
+  band: MaturityBandRect,
+  gap = 10,
+): Point {
+  let point = clampPointToMaturityBand(desired, band, moving.height, 7);
+  const peers = others.filter((other) => other.band === moving.band && other.id !== moving.id);
+  const maxPasses = Math.max(4, peers.length * 2);
+
+  for (let pass = 0; pass < maxPasses; pass++) {
+    let collision = false;
+    for (const other of peers) {
+      if (!nodeBoxesOverlap(moving, point, other, other.point, gap)) continue;
+      collision = true;
+      const dx = point.x - other.point.x;
+      const dy = point.y - other.point.y;
+      const pushX = (moving.width + other.width) / 2 + gap - Math.abs(dx);
+      const pushY = (moving.height + other.height) / 2 + gap - Math.abs(dy);
+      const yDirection = dy === 0 ? (moving.id < other.id ? -1 : 1) : Math.sign(dy);
+      const yCandidate = clampPointToMaturityBand(
+        { x: point.x, y: point.y + yDirection * pushY },
+        band,
+        moving.height,
+        7,
+      );
+      if (!nodeBoxesOverlap(moving, yCandidate, other, other.point, gap)) {
+        point = yCandidate;
+      } else {
+        const xDirection = dx === 0 ? (moving.id < other.id ? -1 : 1) : Math.sign(dx);
+        point = { x: point.x + xDirection * pushX, y: point.y };
+      }
+    }
+    if (!collision) break;
+  }
+  return point;
+}
+
 /**
  * Separate enlarged node blocks within each band. Prefer vertical separation
  * to reinforce progression; fall back to horizontal separation only when the
@@ -123,7 +176,7 @@ export function separateMaturityBandNodes(
     const band = bands[bandIndex];
     if (!band) continue;
     members.sort((a, b) => a.point.y - b.point.y || a.point.x - b.point.x || a.id.localeCompare(b.id));
-    for (let pass = 0; pass < 10; pass++) {
+    for (let pass = 0; pass < Math.max(20, members.length * members.length * 2); pass++) {
       let changed = false;
       for (let i = 0; i < members.length; i++) {
         for (let j = i + 1; j < members.length; j++) {
@@ -234,6 +287,7 @@ export function placeInMaturityBands(
   top: number,
   totalHeight: number,
   bandCount: number,
+  requestedWeights?: readonly number[],
 ): MaturityBandLayout {
   const output = new Map<string, Point>();
   const count = Math.max(1, bandCount);
@@ -247,9 +301,12 @@ export function placeInMaturityBands(
 
   // Empty levels stay visible as narrow colored bands without consuming the
   // same space as levels containing nodes.
-  const weights = members.map((bandMembers) =>
-    bandMembers.length === 0 ? 0.35 : Math.sqrt(bandMembers.length),
-  );
+  const weights = members.map((bandMembers, band) => {
+    const requested = requestedWeights?.[band];
+    return requested !== undefined && Number.isFinite(requested) && requested > 0
+      ? requested
+      : bandMembers.length === 0 ? 0.35 : Math.sqrt(bandMembers.length);
+  });
   const weightTotal = weights.reduce((sum, weight) => sum + weight, 0);
   let cursor = top;
   const bandRects = members.map((bandMembers, band) => {

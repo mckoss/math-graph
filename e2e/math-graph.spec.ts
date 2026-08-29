@@ -56,13 +56,15 @@ test('presents and operates the Math Graph knowledge explorer', async ({ page })
   expect(collapsedStatus).toMatch(/Showing \d+ nodes and \d+ connections/);
 
   await page.getByRole('button', { name: /Expand all/ }).click();
-  await expect(status).toHaveText(/Showing 94 nodes and (163|166) connections/);
+  await expect(status).toHaveText(/Showing 106 nodes and (163|166) connections/);
   await expect(visualization).toHaveAttribute('data-layout-mode', 'bounded');
+  await expect(visualization).toHaveAttribute('data-compound-group-count', '12');
   expect(await status.textContent()).not.toBe(collapsedStatus);
 
   await page.getByRole('button', { name: /Collapse all/ }).click();
   await expect(status).toHaveText(collapsedStatus!);
   await expect(visualization).toHaveAttribute('data-layout-mode', 'flow');
+  await expect(visualization).toHaveAttribute('data-compound-group-count', '0');
 
   await page.getByRole('button', { name: 'Zoom in' }).click();
   await page.getByRole('button', { name: 'Zoom out' }).click();
