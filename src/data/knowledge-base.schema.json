@@ -1,0 +1,95 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://mckoss.com/math-graph/knowledge-base.schema.json",
+  "title": "Math Graph knowledge base",
+  "type": "object",
+  "required": ["maturityLevels", "groups", "dependencies"],
+  "additionalProperties": false,
+  "properties": {
+    "maturityLevels": { "type": "array", "minItems": 1, "items": { "$ref": "#/definitions/maturityLevel" } },
+    "groups": { "type": "array", "items": { "$ref": "#/definitions/group" } },
+    "concepts": { "type": "array", "items": { "$ref": "#/definitions/concept" } },
+    "dependencies": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?:\\s*->\\s*[a-z0-9]+(?:-[a-z0-9]+)*)+$" }
+    }
+  },
+  "definitions": {
+    "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+    "gradeRange": {
+      "type": "object",
+      "required": ["from", "to"],
+      "additionalProperties": false,
+      "properties": {
+        "from": { "type": "integer", "minimum": 1 },
+        "to": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "maturityLevel": {
+      "type": "object",
+      "required": ["id", "label", "order", "color", "tint"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/definitions/id" },
+        "label": { "type": "string", "minLength": 1 },
+        "order": { "type": "integer" },
+        "color": { "$ref": "#/definitions/color" },
+        "tint": { "$ref": "#/definitions/color" },
+        "description": { "type": "string" },
+        "gradeRange": { "$ref": "#/definitions/gradeRange" }
+      }
+    },
+    "group": {
+      "type": "object",
+      "required": ["id", "label"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/definitions/id" },
+        "label": { "type": "string", "minLength": 1 },
+        "wikipedia": { "type": "string" },
+        "description": { "type": "string" },
+        "groups": { "type": "array", "items": { "$ref": "#/definitions/group" } }
+      }
+    },
+    "concept": {
+      "type": "object",
+      "required": ["id", "label", "group", "maturityLevel"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/definitions/id" },
+        "label": { "type": "string", "minLength": 1 },
+        "group": { "$ref": "#/definitions/id" },
+        "wikipedia": { "type": "string" },
+        "maturityLevel": { "$ref": "#/definitions/id" },
+        "description": { "type": "string" },
+        "history": { "$ref": "#/definitions/history" }
+      }
+    },
+    "year": {
+      "type": "integer",
+      "not": { "const": 0 },
+      "description": "Signed historical year: negative values are BCE, positive values are CE; year zero is not used."
+    },
+    "history": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "from": { "$ref": "#/definitions/year" },
+        "to": { "$ref": "#/definitions/year" },
+        "circa": { "type": "boolean" },
+        "note": { "type": "string" },
+        "attributions": { "type": "array", "items": { "$ref": "#/definitions/attribution" } }
+      }
+    },
+    "attribution": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "wikipedia": { "type": "string" }
+      }
+    }
+  }
+}

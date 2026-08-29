@@ -1,19 +1,23 @@
 /**
  * Shared data model for the math concept graph.
  *
- * This is the contract between the DSL parser (src/lib/dsl/) and the
- * visualization (src/lib/viz/). The parser produces a ConceptGraph; the
- * visualization consumes one. Neither side depends on the other.
+ * This is the contract between knowledge-base loading and the visualization.
+ * The loader produces a ConceptGraph; the visualization consumes one.
+ * Neither side depends on the other.
  */
 
-/** Educational stage a concept is typically first encountered. */
-export type Stage =
-  | 'elementary'
-  | 'middle'
-  | 'high-school'
-  | 'undergraduate';
+/** A knowledge-base-defined learner maturity band. */
+export interface MaturityLevel {
+  id: string;
+  label: string;
+  order: number;
+  color: string;
+  tint: string;
+  description?: string;
+  gradeRange?: { from: number; to: number };
+}
 
-export interface ConceptNode {
+export interface GraphNode {
   /** Unique kebab-case identifier, e.g. "complex-numbers". */
   id: string;
   /** Human-readable display name, e.g. "Complex Numbers". */
@@ -26,14 +30,37 @@ export interface ConceptNode {
   /** One- or two-sentence plain-language description shown in the info panel. */
   description?: string;
   /**
-   * id of the category node this concept belongs to, for the multilevel
+   * id of the group node this node belongs to, for the multilevel
    * (expand/collapse) view. Undefined for top-level nodes.
    */
   parent?: string;
-  /** True when this node is a category that contains child nodes. */
-  isCategory: boolean;
-  /** Educational stage; used for color coding. */
-  stage?: Stage;
+  /** True when this node is a group that contains child nodes. */
+  isGroup: boolean;
+  /** Knowledge-base-defined maturity-level id (concepts only). */
+  maturityLevel?: string;
+  /** When the concept was first developed, and by whom (concepts only). */
+  history?: ConceptHistory;
+}
+
+export interface Attribution {
+  /** Person or culture credited, e.g. "Isaac Newton", "Babylonian mathematicians". */
+  name: string;
+  /** Wikipedia article title for the person/culture, if one exists. */
+  wikipedia?: string;
+}
+
+/**
+ * When a concept was first developed. Signed historical years use negative
+ * values for BCE and positive values for CE, with no year zero. Either bound
+ * may be omitted when unknown; `circa` marks approximate dating.
+ */
+export interface ConceptHistory {
+  from?: number;
+  to?: number;
+  circa?: boolean;
+  /** Optional free-text nuance, e.g. "developed independently". */
+  note?: string;
+  attributions?: Attribution[];
 }
 
 /**
@@ -46,17 +73,7 @@ export interface ConceptEdge {
 }
 
 export interface ConceptGraph {
-  nodes: ConceptNode[];
+  maturityLevels: MaturityLevel[];
+  nodes: GraphNode[];
   edges: ConceptEdge[];
-}
-
-/** A parse error with 1-based line number in the DSL source. */
-export interface ParseError {
-  line: number;
-  message: string;
-}
-
-export interface ParseResult {
-  graph: ConceptGraph;
-  errors: ParseError[];
 }

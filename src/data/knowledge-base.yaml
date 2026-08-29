@@ -1,0 +1,1637 @@
+# =============================================================================
+# Mathematics knowledge base
+#
+# Concepts from elementary school through graduate mathematics, with
+# prerequisite ("depends on") relationships.
+#
+# Edge direction: foundation -> concept that builds on it.
+# "a -> b -> c" means a is a prerequisite of b, and b of c.
+#
+# Schema: see docs/SCHEMA.md
+# =============================================================================
+
+maturityLevels:
+  - id: elementary
+    label: Elementary
+    order: 1
+    color: "#d9920f"
+    tint: "#fff3d6"
+    description: "Grades 1–8"
+    gradeRange:
+      from: 1
+      to: 8
+  - id: high-school
+    label: High School
+    order: 2
+    color: "#d95f38"
+    tint: "#fde8df"
+    description: "Grades 9–12"
+    gradeRange:
+      from: 9
+      to: 12
+  - id: undergraduate
+    label: Undergraduate
+    order: 3
+    color: "#2f6fc2"
+    tint: "#e5eef9"
+    description: "Undergraduate study"
+  - id: graduate
+    label: Graduate
+    order: 4
+    color: "#7354a3"
+    tint: "#eee8f6"
+    description: "Graduate study"
+
+groups:
+  # ---------------------------------------------------------------------------
+  # Numbers & Counting
+  # ---------------------------------------------------------------------------
+  - id: numbers
+    label: "Numbers & Counting"
+    wikipedia: Number
+    description: "The most basic ideas of quantity: counting things, naming numbers, and writing them down."
+  # ---------------------------------------------------------------------------
+  # Arithmetic
+  # ---------------------------------------------------------------------------
+  - id: arithmetic
+    label: "Arithmetic"
+    wikipedia: Arithmetic
+    description: "Calculating with numbers: the four basic operations and their extensions."
+  # ---------------------------------------------------------------------------
+  # Number Systems
+  # ---------------------------------------------------------------------------
+  - id: number-systems
+    label: "Number Systems"
+    wikipedia: Number_system
+    description: "Successive enlargements of the idea of number: integers, rationals, reals, complex numbers and beyond."
+  # ---------------------------------------------------------------------------
+  # Algebra
+  # ---------------------------------------------------------------------------
+  - id: algebra
+    label: "Algebra"
+    wikipedia: Algebra
+    description: "Working with symbols that stand for numbers: expressions, equations, and how to solve them."
+  # ---------------------------------------------------------------------------
+  # Geometry
+  # ---------------------------------------------------------------------------
+  - id: geometry
+    label: "Geometry"
+    wikipedia: Geometry
+    description: "The mathematics of shape, size, and position, from measuring figures to coordinates and proof."
+  # ---------------------------------------------------------------------------
+  # Trigonometry
+  # ---------------------------------------------------------------------------
+  - id: trigonometry
+    label: "Trigonometry"
+    wikipedia: Trigonometry
+    description: "The study of angles and the periodic functions that arise from triangles and circles."
+  # ---------------------------------------------------------------------------
+  # Functions & Graphs
+  # ---------------------------------------------------------------------------
+  - id: functions-and-graphs
+    label: "Functions & Graphs"
+    wikipedia: Function_(mathematics)
+    description: "The idea of a function as a rule assigning outputs to inputs, and the pictures functions make."
+  # ---------------------------------------------------------------------------
+  # Calculus
+  # ---------------------------------------------------------------------------
+  - id: calculus
+    label: "Calculus"
+    wikipedia: Calculus
+    description: "The mathematics of change and accumulation, built on the idea of a limit."
+  # ---------------------------------------------------------------------------
+  # Linear Algebra
+  # ---------------------------------------------------------------------------
+  - id: linear-algebra
+    label: "Linear Algebra"
+    wikipedia: Linear_algebra
+    description: "Vectors, matrices, and linear transformations: the mathematics of flat, proportional structure in any dimension."
+  # ---------------------------------------------------------------------------
+  # Probability & Statistics
+  # ---------------------------------------------------------------------------
+  - id: probability-statistics
+    label: "Probability & Statistics"
+    wikipedia: Probability_and_statistics
+    description: "Reasoning about uncertainty and learning from data."
+  # ---------------------------------------------------------------------------
+  # Discrete Mathematics
+  # ---------------------------------------------------------------------------
+  - id: discrete-math
+    label: "Discrete Mathematics"
+    wikipedia: Discrete_mathematics
+    description: "Mathematics of distinct, separate objects: logic, sets, counting, and networks - the foundation of computer science."
+  # ---------------------------------------------------------------------------
+  # Abstract Algebra
+  # ---------------------------------------------------------------------------
+  - id: abstract-algebra
+    label: "Abstract Algebra"
+    wikipedia: Abstract_algebra
+    description: "Studying algebraic structure itself: axioms for systems where addition-like and multiplication-like operations live."
+# Edges connect CONCEPTS only. Category-to-category links are never recorded
+# here: the visualization derives them by aggregating concept edges that
+# cross category boundaries (see docs/SCHEMA.md, "Design principle").
+
+concepts:
+  - id: counting
+    group: numbers
+    label: "Counting"
+    wikipedia: Counting
+    maturityLevel: elementary
+    description: "Saying number names in order while pointing at objects to find how many there are."
+    history:
+      from: -20000
+      circa: true
+      note: "Tally marks such as those on the Ishango bone long predate writing."
+  - id: natural-numbers
+    group: numbers
+    label: "Natural Numbers"
+    wikipedia: Natural_number
+    maturityLevel: elementary
+    description: "The counting numbers 1, 2, 3, ... (and usually 0), the first numbers anyone meets."
+    history:
+      from: -3000
+      circa: true
+      note: "As old as the first written numerals; axiomatized by Giuseppe Peano in 1889."
+      attributions:
+        - name: "Giuseppe Peano"
+          wikipedia: Giuseppe_Peano
+  - id: place-value
+    group: numbers
+    label: "Place Value"
+    wikipedia: Positional_notation
+    maturityLevel: elementary
+    description: "Writing numbers with digits whose value depends on their position, as in 305 = 3 hundreds + 5 ones."
+    history:
+      from: -2000
+      circa: true
+      note: "Babylonian base-60 positional notation; the decimal form spread from India."
+      attributions:
+        - name: "Babylonian mathematicians"
+          wikipedia: Babylonian_mathematics
+        - name: "Indian mathematicians"
+          wikipedia: Indian_mathematics
+  - id: number-line
+    group: numbers
+    label: "The Number Line"
+    wikipedia: Number_line
+    maturityLevel: elementary
+    description: "A straight line with numbers placed at equal intervals, giving a picture of order and distance."
+    history:
+      from: 1685
+      note: "Popularized in John Wallis's treatise on algebra."
+      attributions:
+        - name: "John Wallis"
+          wikipedia: John_Wallis
+
+  - id: addition
+    group: arithmetic
+    label: "Addition"
+    wikipedia: Addition
+    maturityLevel: elementary
+    description: "Combining two quantities into a total."
+    history:
+      from: -3000
+      circa: true
+      note: "Practiced in the earliest Sumerian and Egyptian accounting."
+  - id: subtraction
+    group: arithmetic
+    label: "Subtraction"
+    wikipedia: Subtraction
+    maturityLevel: elementary
+    description: "Taking one quantity away from another, or finding the difference between them."
+    history:
+      from: -3000
+      circa: true
+  - id: multiplication
+    group: arithmetic
+    label: "Multiplication"
+    wikipedia: Multiplication
+    maturityLevel: elementary
+    description: "Repeated addition of equal groups, and later the scaling of one quantity by another."
+    history:
+      from: -2000
+      circa: true
+      attributions:
+        - name: "Babylonian mathematicians"
+          wikipedia: Babylonian_mathematics
+        - name: "Egyptian mathematicians"
+          wikipedia: Ancient_Egyptian_mathematics
+  - id: division
+    group: arithmetic
+    label: "Division"
+    wikipedia: Division_(mathematics)
+    maturityLevel: elementary
+    description: "Splitting a quantity into equal parts, or finding how many times one number fits into another."
+    history:
+      from: -2000
+      circa: true
+      attributions:
+        - name: "Babylonian mathematicians"
+          wikipedia: Babylonian_mathematics
+        - name: "Egyptian mathematicians"
+          wikipedia: Ancient_Egyptian_mathematics
+  - id: fractions
+    group: arithmetic
+    label: "Fractions"
+    wikipedia: Fraction
+    maturityLevel: elementary
+    description: "Numbers like 3/4 that describe parts of a whole as a ratio of two integers."
+    history:
+      from: -1800
+      circa: true
+      note: "Unit fractions dominate the Rhind papyrus."
+      attributions:
+        - name: "Egyptian mathematicians"
+          wikipedia: Ancient_Egyptian_mathematics
+  - id: decimals
+    group: arithmetic
+    label: "Decimals"
+    wikipedia: Decimal
+    maturityLevel: elementary
+    description: "Extending place value to the right of the decimal point to write fractional quantities."
+    history:
+      from: 952
+      to: 1585
+      circa: true
+      note: "Decimal fractions appear in medieval Arabic arithmetic; systematized in Europe by Simon Stevin."
+      attributions:
+        - name: "Simon Stevin"
+          wikipedia: Simon_Stevin
+  - id: percentages
+    group: arithmetic
+    label: "Percentages"
+    wikipedia: Percentage
+    maturityLevel: elementary
+    description: "Expressing a proportion as a number of parts per hundred."
+    history:
+      from: 1400
+      circa: true
+      note: "Grew out of late-medieval Italian commercial arithmetic."
+  - id: ratios
+    group: arithmetic
+    label: "Ratios & Proportions"
+    wikipedia: Ratio
+    maturityLevel: elementary
+    description: "Comparing two quantities by division, and reasoning about quantities that scale together."
+    history:
+      from: -400
+      to: -300
+      circa: true
+      note: "Eudoxus's theory of proportion, preserved in Euclid's Elements Book V."
+      attributions:
+        - name: "Eudoxus of Cnidus"
+          wikipedia: Eudoxus_of_Cnidus
+  - id: order-of-operations
+    group: arithmetic
+    label: "Order of Operations"
+    wikipedia: Order_of_operations
+    maturityLevel: elementary
+    description: "The conventions (parentheses, exponents, multiplication before addition) that make an expression unambiguous."
+    history:
+      from: 1600
+      circa: true
+      note: "A notational convention that settled gradually as symbolic algebra spread."
+  - id: exponentiation
+    group: arithmetic
+    label: "Exponents"
+    wikipedia: Exponentiation
+    maturityLevel: elementary
+    description: "Repeated multiplication, written as a base raised to a power."
+    history:
+      from: 1637
+      note: "Squares and cubes are ancient; the modern superscript notation is from Descartes's La Géométrie."
+      attributions:
+        - name: "René Descartes"
+          wikipedia: René_Descartes
+  - id: square-roots
+    group: arithmetic
+    label: "Square Roots"
+    wikipedia: Square_root
+    maturityLevel: elementary
+    description: "The inverse of squaring: the square root of 9 is 3 because 3 x 3 = 9."
+    history:
+      from: -1800
+      circa: true
+      note: "A Babylonian tablet approximates the square root of 2 to six decimal places."
+      attributions:
+        - name: "Babylonian mathematicians"
+          wikipedia: Babylonian_mathematics
+
+  - id: integers
+    group: number-systems
+    label: "Integers"
+    wikipedia: Integer
+    maturityLevel: elementary
+    description: "Whole numbers extended with negatives: ..., -2, -1, 0, 1, 2, ..., closing subtraction."
+    history:
+      from: -200
+      to: 628
+      circa: true
+      note: "Negative quantities in Chinese rod arithmetic; arithmetic rules stated by Brahmagupta."
+      attributions:
+        - name: "Chinese mathematicians"
+          wikipedia: Chinese_mathematics
+        - name: "Brahmagupta"
+          wikipedia: Brahmagupta
+  - id: rational-numbers
+    group: number-systems
+    label: "Rational Numbers"
+    wikipedia: Rational_number
+    maturityLevel: elementary
+    description: "Numbers expressible as a fraction of two integers, closing division."
+    history:
+      from: -1800
+      circa: true
+      note: "Fractions are ancient; the rationals as a number system were formalized in the 19th century."
+  - id: irrational-numbers
+    group: number-systems
+    label: "Irrational Numbers"
+    wikipedia: Irrational_number
+    maturityLevel: elementary
+    description: "Numbers such as the square root of 2 and pi that cannot be written as a fraction of integers."
+    history:
+      from: -450
+      circa: true
+      note: "The discovery that the diagonal of a square is incommensurable is attributed to the Pythagorean school."
+      attributions:
+        - name: "Hippasus"
+          wikipedia: Hippasus
+  - id: real-numbers
+    group: number-systems
+    label: "Real Numbers"
+    wikipedia: Real_number
+    maturityLevel: high-school
+    description: "All the numbers on the number line, rational and irrational together, with no gaps."
+    history:
+      from: 1858
+      to: 1872
+      note: "Rigorous constructions via Dedekind cuts and Cauchy sequences."
+      attributions:
+        - name: "Richard Dedekind"
+          wikipedia: Richard_Dedekind
+        - name: "Georg Cantor"
+          wikipedia: Georg_Cantor
+  - id: complex-numbers
+    group: number-systems
+    label: "Complex Numbers"
+    wikipedia: Complex_number
+    maturityLevel: high-school
+    description: "Numbers of the form a + bi, where i squares to -1; every polynomial equation has roots among them."
+    history:
+      from: 1545
+      to: 1572
+      attributions:
+        - name: "Gerolamo Cardano"
+          wikipedia: Gerolamo_Cardano
+        - name: "Rafael Bombelli"
+          wikipedia: Rafael_Bombelli
+  - id: quaternions
+    group: number-systems
+    label: "Quaternions"
+    wikipedia: Quaternion
+    maturityLevel: undergraduate
+    description: "A four-dimensional extension of the complex numbers where multiplication no longer commutes; useful for describing 3D rotations."
+    history:
+      from: 1843
+      note: "Famously carved into Broom Bridge in Dublin at the moment of discovery."
+      attributions:
+        - name: "William Rowan Hamilton"
+          wikipedia: William_Rowan_Hamilton
+  - id: prime-numbers
+    group: number-systems
+    label: "Prime Numbers"
+    wikipedia: Prime_number
+    maturityLevel: elementary
+    description: "Numbers greater than 1 divisible only by 1 and themselves; the multiplicative building blocks of the integers."
+    history:
+      from: -300
+      circa: true
+      note: "Euclid's Elements proves there are infinitely many primes."
+      attributions:
+        - name: "Euclid"
+          wikipedia: Euclid
+
+  - id: variables
+    group: algebra
+    label: "Variables"
+    wikipedia: Variable_(mathematics)
+    maturityLevel: elementary
+    description: "Letters that stand for unknown or arbitrary numbers, the key step from arithmetic to algebra."
+    history:
+      from: 250
+      to: 1591
+      circa: true
+      note: "Abbreviated unknowns in Diophantus; general symbolic letters from Viète."
+      attributions:
+        - name: "Diophantus"
+          wikipedia: Diophantus
+        - name: "François Viète"
+          wikipedia: François_Viète
+  - id: algebraic-expressions
+    group: algebra
+    label: "Algebraic Expressions"
+    wikipedia: Expression_(mathematics)
+    maturityLevel: elementary
+    description: "Combinations of numbers, variables, and operations, such as 3x + 2, that can be evaluated and rearranged."
+    history:
+      from: 820
+      circa: true
+      note: "Al-Khwarizmi's treatise gave algebra its name and its first systematic rules."
+      attributions:
+        - name: "al-Khwarizmi"
+          wikipedia: Al-Khwarizmi
+  - id: linear-equations
+    group: algebra
+    label: "Linear Equations"
+    wikipedia: Linear_equation
+    maturityLevel: elementary
+    description: "Equations like 2x + 3 = 11 whose unknowns appear only to the first power, solved by undoing operations."
+    history:
+      from: -1800
+      circa: true
+      note: "Solved in Babylonian and Egyptian problem texts; treated systematically by al-Khwarizmi."
+      attributions:
+        - name: "Babylonian mathematicians"
+          wikipedia: Babylonian_mathematics
+        - name: "Egyptian mathematicians"
+          wikipedia: Ancient_Egyptian_mathematics
+  - id: inequalities
+    group: algebra
+    label: "Inequalities"
+    wikipedia: Inequality_(mathematics)
+    maturityLevel: elementary
+    description: "Statements that one expression is less than or greater than another, with solution sets rather than single answers."
+    history:
+      from: 1631
+      note: "The < and > signs first appear in Thomas Harriot's posthumous treatise."
+      attributions:
+        - name: "Thomas Harriot"
+          wikipedia: Thomas_Harriot
+  - id: systems-of-equations
+    group: algebra
+    label: "Systems of Linear Equations"
+    wikipedia: System_of_linear_equations
+    maturityLevel: high-school
+    description: "Several linear equations solved simultaneously, by substitution or elimination."
+    history:
+      from: -200
+      to: 100
+      circa: true
+      note: "The Nine Chapters solves systems by an elimination method equivalent to Gaussian elimination."
+      attributions:
+        - name: "Chinese mathematicians"
+          wikipedia: Chinese_mathematics
+  - id: polynomials
+    group: algebra
+    label: "Polynomials"
+    wikipedia: Polynomial
+    maturityLevel: high-school
+    description: "Sums of terms with whole-number powers of a variable, such as x^3 - 2x + 1."
+    history:
+      from: 1545
+      to: 1637
+      circa: true
+      note: "General solutions of cubics and quartics in Renaissance Italy, then modern notation from Descartes."
+      attributions:
+        - name: "Gerolamo Cardano"
+          wikipedia: Gerolamo_Cardano
+  - id: factoring
+    group: algebra
+    label: "Factoring"
+    wikipedia: Factorization
+    maturityLevel: high-school
+    description: "Rewriting a number or polynomial as a product of simpler pieces, mirroring prime factorization."
+    history:
+      from: -300
+      circa: true
+      note: "Unique factorization of integers is implicit in Euclid; polynomial factoring came with symbolic algebra."
+      attributions:
+        - name: "Euclid"
+          wikipedia: Euclid
+  - id: quadratic-equations
+    group: algebra
+    label: "Quadratic Equations"
+    wikipedia: Quadratic_equation
+    maturityLevel: high-school
+    description: "Second-degree equations solved by factoring, completing the square, or the quadratic formula."
+    history:
+      from: -1800
+      to: 820
+      circa: true
+      note: "Babylonian scribes completed the square; al-Khwarizmi classified and solved the cases."
+      attributions:
+        - name: "Babylonian mathematicians"
+          wikipedia: Babylonian_mathematics
+        - name: "al-Khwarizmi"
+          wikipedia: Al-Khwarizmi
+  - id: logarithms
+    group: algebra
+    label: "Logarithms"
+    wikipedia: Logarithm
+    maturityLevel: high-school
+    description: "The inverse of exponentiation: the logarithm of a number is the exponent needed to produce it."
+    history:
+      from: 1614
+      to: 1617
+      attributions:
+        - name: "John Napier"
+          wikipedia: John_Napier
+        - name: "Henry Briggs"
+          wikipedia: Henry_Briggs_(mathematician)
+
+  - id: angles
+    group: geometry
+    label: "Angles"
+    wikipedia: Angle
+    maturityLevel: elementary
+    description: "The amount of turn between two rays meeting at a point, measured in degrees."
+    history:
+      from: -2000
+      circa: true
+      note: "The 360-degree circle descends from Babylonian base-60 astronomy."
+      attributions:
+        - name: "Babylonian mathematicians"
+          wikipedia: Babylonian_mathematics
+  - id: triangles
+    group: geometry
+    label: "Triangles"
+    wikipedia: Triangle
+    maturityLevel: elementary
+    description: "Three-sided polygons, classified by their sides and angles; the simplest rigid shape."
+    history:
+      from: -600
+      to: -300
+      circa: true
+      note: "Early results attributed to Thales; organized deductively in Euclid's Elements."
+      attributions:
+        - name: "Thales of Miletus"
+          wikipedia: Thales_of_Miletus
+        - name: "Euclid"
+          wikipedia: Euclid
+  - id: circles
+    group: geometry
+    label: "Circles"
+    wikipedia: Circle
+    maturityLevel: elementary
+    description: "All points at a fixed distance from a center; the source of pi, arcs, and angles of rotation."
+    history:
+      from: -2000
+      circa: true
+      note: "Circle areas are approximated in Babylonian and Egyptian texts."
+  - id: area
+    group: geometry
+    label: "Area"
+    wikipedia: Area
+    maturityLevel: elementary
+    description: "The amount of surface a two-dimensional shape covers, measured in square units."
+    history:
+      from: -3000
+      circa: true
+      note: "Rooted in land measurement along the Nile and in Mesopotamia."
+      attributions:
+        - name: "Egyptian mathematicians"
+          wikipedia: Ancient_Egyptian_mathematics
+  - id: volume
+    group: geometry
+    label: "Volume"
+    wikipedia: Volume
+    maturityLevel: elementary
+    description: "The amount of space a three-dimensional object occupies, measured in cubic units."
+    history:
+      from: -1850
+      circa: true
+      note: "The Moscow papyrus computes the volume of a truncated pyramid."
+      attributions:
+        - name: "Egyptian mathematicians"
+          wikipedia: Ancient_Egyptian_mathematics
+  - id: congruence
+    group: geometry
+    label: "Congruence"
+    wikipedia: Congruence_(geometry)
+    maturityLevel: elementary
+    description: "Two figures are congruent when one can be moved onto the other without stretching; same shape and same size."
+    history:
+      from: -300
+      circa: true
+      note: "Euclid's congruence criteria for triangles."
+      attributions:
+        - name: "Euclid"
+          wikipedia: Euclid
+  - id: similarity
+    group: geometry
+    label: "Similarity"
+    wikipedia: Similarity_(geometry)
+    maturityLevel: elementary
+    description: "Figures with the same shape but possibly different size; corresponding sides are in proportion."
+    history:
+      from: -600
+      to: -300
+      circa: true
+      note: "Thales reportedly measured pyramids by their shadows; the theory is in Elements Book VI."
+      attributions:
+        - name: "Thales of Miletus"
+          wikipedia: Thales_of_Miletus
+  - id: pythagorean-theorem
+    group: geometry
+    label: "Pythagorean Theorem"
+    wikipedia: Pythagorean_theorem
+    maturityLevel: elementary
+    description: "In a right triangle the square on the hypotenuse equals the sum of the squares on the legs."
+    history:
+      from: -1800
+      to: -500
+      circa: true
+      note: "Pythagorean triples appear on Babylonian tablets a millennium before the Greek proof."
+      attributions:
+        - name: "Babylonian mathematicians"
+          wikipedia: Babylonian_mathematics
+        - name: "Pythagoras"
+          wikipedia: Pythagoras
+  - id: coordinate-geometry
+    group: geometry
+    label: "Coordinate Geometry"
+    wikipedia: Analytic_geometry
+    maturityLevel: high-school
+    description: "Describing points, lines, and curves with coordinates, so geometric questions become algebraic ones."
+    history:
+      from: 1637
+      note: "Published independently in the same decade."
+      attributions:
+        - name: "René Descartes"
+          wikipedia: René_Descartes
+        - name: "Pierre de Fermat"
+          wikipedia: Pierre_de_Fermat
+
+  - id: trig-functions
+    group: trigonometry
+    label: "Trigonometric Functions"
+    wikipedia: Trigonometric_functions
+    maturityLevel: high-school
+    description: "Sine, cosine, and tangent: ratios of sides in a right triangle that depend only on an angle."
+    history:
+      from: -150
+      to: 500
+      circa: true
+      note: "Chord tables of Hipparchus; the sine function emerged in Indian astronomy."
+      attributions:
+        - name: "Hipparchus"
+          wikipedia: Hipparchus
+        - name: "Aryabhata"
+          wikipedia: Aryabhata
+  - id: radians
+    group: trigonometry
+    label: "Radians"
+    wikipedia: Radian
+    maturityLevel: high-school
+    description: "Measuring angles by arc length along a unit circle; the natural unit for calculus."
+    history:
+      from: 1714
+      circa: true
+      note: "Implicit in Roger Cotes's work; the name came in the 1870s."
+      attributions:
+        - name: "Roger Cotes"
+          wikipedia: Roger_Cotes
+  - id: unit-circle
+    group: trigonometry
+    label: "The Unit Circle"
+    wikipedia: Unit_circle
+    maturityLevel: high-school
+    description: "The circle of radius 1 centered at the origin, extending sine and cosine to all angles."
+    history:
+      from: 1748
+      circa: true
+      note: "Euler's Introductio recast trigonometry as the study of functions on the circle."
+      attributions:
+        - name: "Leonhard Euler"
+          wikipedia: Leonhard_Euler
+  - id: trig-identities
+    group: trigonometry
+    label: "Trigonometric Identities"
+    wikipedia: List_of_trigonometric_identities
+    maturityLevel: high-school
+    description: "Equations like sin^2 + cos^2 = 1 relating trigonometric functions, used to simplify expressions."
+    history:
+      from: 150
+      circa: true
+      note: "Angle-addition results underpin the chord tables of Ptolemy's Almagest."
+      attributions:
+        - name: "Ptolemy"
+          wikipedia: Ptolemy
+  - id: inverse-trig-functions
+    group: trigonometry
+    label: "Inverse Trigonometric Functions"
+    wikipedia: Inverse_trigonometric_functions
+    maturityLevel: high-school
+    description: "Arcsine, arccosine, and arctangent: recovering an angle from the value of a trigonometric ratio."
+    history:
+      from: 1400
+      to: 1770
+      circa: true
+      note: "The Kerala school expanded the arctangent as an infinite series."
+      attributions:
+        - name: "Madhava of Sangamagrama"
+          wikipedia: Madhava_of_Sangamagrama
+  - id: polar-coordinates
+    group: trigonometry
+    label: "Polar Coordinates"
+    wikipedia: Polar_coordinate_system
+    maturityLevel: high-school
+    description: "Locating points by distance from the origin and angle from an axis, instead of x and y."
+    history:
+      from: 1671
+      to: 1691
+      circa: true
+      attributions:
+        - name: "Isaac Newton"
+          wikipedia: Isaac_Newton
+        - name: "Jacob Bernoulli"
+          wikipedia: Jacob_Bernoulli
+
+  - id: functions
+    group: functions-and-graphs
+    label: "Functions"
+    wikipedia: Function_(mathematics)
+    maturityLevel: elementary
+    description: "A rule assigning exactly one output to each input; the central object of modern mathematics."
+    history:
+      from: 1673
+      to: 1837
+      note: "The word is Leibniz's; the modern arbitrary-rule definition is Dirichlet's."
+      attributions:
+        - name: "Gottfried Wilhelm Leibniz"
+          wikipedia: Gottfried_Wilhelm_Leibniz
+        - name: "Leonhard Euler"
+          wikipedia: Leonhard_Euler
+        - name: "Peter Gustav Lejeune Dirichlet"
+          wikipedia: Peter_Gustav_Lejeune_Dirichlet
+  - id: graphing
+    group: functions-and-graphs
+    label: "Graphs of Functions"
+    wikipedia: Graph_of_a_function
+    maturityLevel: elementary
+    description: "Plotting input-output pairs in the coordinate plane to see a function's behavior at a glance."
+    history:
+      from: 1350
+      to: 1637
+      circa: true
+      note: "Oresme plotted qualities against time three centuries before coordinate geometry."
+      attributions:
+        - name: "Nicole Oresme"
+          wikipedia: Nicole_Oresme
+        - name: "René Descartes"
+          wikipedia: René_Descartes
+  - id: slope
+    group: functions-and-graphs
+    label: "Slope"
+    wikipedia: Slope
+    maturityLevel: elementary
+    description: "The steepness of a line: rise over run, the rate at which one quantity changes with another."
+    history:
+      from: 1637
+      circa: true
+      note: "A by-product of describing lines by equations."
+  - id: function-composition
+    group: functions-and-graphs
+    label: "Function Composition"
+    wikipedia: Function_composition
+    maturityLevel: high-school
+    description: "Applying one function to the result of another, chaining rules together."
+  - id: inverse-functions
+    group: functions-and-graphs
+    label: "Inverse Functions"
+    wikipedia: Inverse_function
+    maturityLevel: high-school
+    description: "A function that undoes another, swapping the roles of inputs and outputs."
+  - id: exponential-functions
+    group: functions-and-graphs
+    label: "Exponential Functions"
+    wikipedia: Exponential_function
+    maturityLevel: high-school
+    description: "Functions like 2^x whose value multiplies by a fixed factor at each step; the mathematics of growth and decay."
+    history:
+      from: 1748
+      note: "Treated as a function in its own right in Euler's Introductio."
+      attributions:
+        - name: "Leonhard Euler"
+          wikipedia: Leonhard_Euler
+  - id: sequences
+    group: functions-and-graphs
+    label: "Sequences"
+    wikipedia: Sequence
+    maturityLevel: high-school
+    description: "Ordered lists of numbers generated by a rule, such as arithmetic and geometric progressions."
+    history:
+      from: -1800
+      circa: true
+      note: "Arithmetic and geometric progressions appear in Babylonian and Egyptian texts."
+
+  - id: limits
+    group: calculus
+    label: "Limits"
+    wikipedia: Limit_(mathematics)
+    maturityLevel: high-school
+    description: "The value a function or sequence approaches; the rigorous foundation beneath all of calculus."
+    history:
+      from: 1817
+      to: 1861
+      note: "Used intuitively since the Greek method of exhaustion; made precise with epsilon-delta definitions."
+      attributions:
+        - name: "Bernard Bolzano"
+          wikipedia: Bernard_Bolzano
+        - name: "Augustin-Louis Cauchy"
+          wikipedia: Augustin-Louis_Cauchy
+        - name: "Karl Weierstrass"
+          wikipedia: Karl_Weierstrass
+  - id: continuity
+    group: calculus
+    label: "Continuity"
+    wikipedia: Continuous_function
+    maturityLevel: high-school
+    description: "A function is continuous when small changes in input produce small changes in output; its graph has no jumps."
+    history:
+      from: 1817
+      to: 1821
+      note: "Defined independently."
+      attributions:
+        - name: "Bernard Bolzano"
+          wikipedia: Bernard_Bolzano
+        - name: "Augustin-Louis Cauchy"
+          wikipedia: Augustin-Louis_Cauchy
+  - id: derivatives
+    group: calculus
+    label: "Derivatives"
+    wikipedia: Derivative
+    maturityLevel: high-school
+    description: "The instantaneous rate of change of a function, defined as the limit of slopes of secant lines."
+    history:
+      from: 1665
+      to: 1684
+      note: "Developed independently, sparking a famous priority dispute."
+      attributions:
+        - name: "Isaac Newton"
+          wikipedia: Isaac_Newton
+        - name: "Gottfried Wilhelm Leibniz"
+          wikipedia: Gottfried_Wilhelm_Leibniz
+  - id: chain-rule
+    group: calculus
+    label: "Chain Rule"
+    wikipedia: Chain_rule
+    maturityLevel: high-school
+    description: "How to differentiate a composition of functions: multiply the rates of change of the pieces."
+    history:
+      from: 1676
+      circa: true
+      attributions:
+        - name: "Gottfried Wilhelm Leibniz"
+          wikipedia: Gottfried_Wilhelm_Leibniz
+  - id: integrals
+    group: calculus
+    label: "Integrals"
+    wikipedia: Integral
+    maturityLevel: high-school
+    description: "Accumulated totals such as area under a curve, defined as limits of finer and finer sums."
+    history:
+      from: 1665
+      to: 1686
+      note: "Area methods go back to Eudoxus and Archimedes; made rigorous by Riemann in 1854."
+      attributions:
+        - name: "Isaac Newton"
+          wikipedia: Isaac_Newton
+        - name: "Gottfried Wilhelm Leibniz"
+          wikipedia: Gottfried_Wilhelm_Leibniz
+  - id: fundamental-theorem-of-calculus
+    group: calculus
+    label: "Fundamental Theorem of Calculus"
+    wikipedia: Fundamental_theorem_of_calculus
+    maturityLevel: high-school
+    description: "Differentiation and integration are inverse operations, so areas can be computed from antiderivatives."
+    history:
+      from: 1665
+      to: 1687
+      note: "Anticipated geometrically by Isaac Barrow."
+      attributions:
+        - name: "Isaac Newton"
+          wikipedia: Isaac_Newton
+        - name: "Gottfried Wilhelm Leibniz"
+          wikipedia: Gottfried_Wilhelm_Leibniz
+  - id: integration-techniques
+    group: calculus
+    label: "Integration Techniques"
+    wikipedia: Integration_by_parts
+    maturityLevel: undergraduate
+    description: "Substitution, integration by parts, partial fractions, and trigonometric methods for finding antiderivatives."
+    history:
+      from: 1675
+      to: 1715
+      circa: true
+      note: "Integration by parts was published by Brook Taylor."
+      attributions:
+        - name: "Brook Taylor"
+          wikipedia: Brook_Taylor
+  - id: infinite-series
+    group: calculus
+    label: "Infinite Series"
+    wikipedia: Series_(mathematics)
+    maturityLevel: undergraduate
+    description: "Sums of infinitely many terms, which may converge to a finite value; convergence tests decide which do."
+    history:
+      from: 1350
+      to: 1821
+      circa: true
+      note: "The Kerala school summed trigonometric series centuries before European convergence theory."
+      attributions:
+        - name: "Madhava of Sangamagrama"
+          wikipedia: Madhava_of_Sangamagrama
+        - name: "Augustin-Louis Cauchy"
+          wikipedia: Augustin-Louis_Cauchy
+  - id: taylor-series
+    group: calculus
+    label: "Taylor Series"
+    wikipedia: Taylor_series
+    maturityLevel: undergraduate
+    description: "Representing a function as an infinite polynomial built from its derivatives at a point."
+    history:
+      from: 1715
+      note: "Special cases were known to the Kerala school around 1400."
+      attributions:
+        - name: "Brook Taylor"
+          wikipedia: Brook_Taylor
+  - id: partial-derivatives
+    group: calculus
+    label: "Partial Derivatives"
+    wikipedia: Partial_derivative
+    maturityLevel: undergraduate
+    description: "Rates of change of functions of several variables, taken one variable at a time."
+    history:
+      from: 1740
+      circa: true
+      attributions:
+        - name: "Leonhard Euler"
+          wikipedia: Leonhard_Euler
+        - name: "Alexis Clairaut"
+          wikipedia: Alexis_Clairaut
+  - id: differential-equations
+    group: calculus
+    label: "Differential Equations"
+    wikipedia: Differential_equation
+    maturityLevel: undergraduate
+    description: "Equations relating a function to its derivatives; the language of physical laws and dynamic systems."
+    history:
+      from: 1671
+      to: 1695
+      circa: true
+      note: "Arose with calculus itself and the Bernoullis' challenge problems."
+      attributions:
+        - name: "Isaac Newton"
+          wikipedia: Isaac_Newton
+        - name: "Gottfried Wilhelm Leibniz"
+          wikipedia: Gottfried_Wilhelm_Leibniz
+  - id: real-analysis
+    group: calculus
+    label: "Real Analysis"
+    wikipedia: Real_analysis
+    maturityLevel: undergraduate
+    description: "The rigorous theory behind calculus: precise definitions and proofs for limits, continuity, and convergence."
+    history:
+      from: 1821
+      to: 1872
+      note: "From Cauchy's Cours d'analyse to the Weierstrass arithmetization of analysis."
+      attributions:
+        - name: "Augustin-Louis Cauchy"
+          wikipedia: Augustin-Louis_Cauchy
+        - name: "Karl Weierstrass"
+          wikipedia: Karl_Weierstrass
+
+  - id: vectors
+    group: linear-algebra
+    label: "Vectors"
+    wikipedia: Euclidean_vector
+    maturityLevel: high-school
+    description: "Quantities with both magnitude and direction, added tip-to-tail and scaled by numbers."
+    history:
+      from: 1843
+      to: 1888
+      circa: true
+      note: "From Hamilton's quaternions to the Gibbs-Heaviside vector calculus."
+      attributions:
+        - name: "William Rowan Hamilton"
+          wikipedia: William_Rowan_Hamilton
+        - name: "Josiah Willard Gibbs"
+          wikipedia: Josiah_Willard_Gibbs
+  - id: dot-product
+    group: linear-algebra
+    label: "Dot Product"
+    wikipedia: Dot_product
+    maturityLevel: high-school
+    description: "A product of two vectors yielding a number that measures how much they point the same way."
+    history:
+      from: 1881
+      to: 1884
+      circa: true
+      attributions:
+        - name: "Josiah Willard Gibbs"
+          wikipedia: Josiah_Willard_Gibbs
+        - name: "Oliver Heaviside"
+          wikipedia: Oliver_Heaviside
+  - id: matrices
+    group: linear-algebra
+    label: "Matrices"
+    wikipedia: Matrix_(mathematics)
+    maturityLevel: high-school
+    description: "Rectangular arrays of numbers that encode systems of equations and linear transformations."
+    history:
+      from: 1850
+      to: 1858
+      note: "Sylvester coined the term; Cayley developed the algebra."
+      attributions:
+        - name: "James Joseph Sylvester"
+          wikipedia: James_Joseph_Sylvester
+        - name: "Arthur Cayley"
+          wikipedia: Arthur_Cayley
+  - id: determinants
+    group: linear-algebra
+    label: "Determinants"
+    wikipedia: Determinant
+    maturityLevel: undergraduate
+    description: "A single number computed from a square matrix that measures volume scaling and detects invertibility."
+    history:
+      from: 1683
+      to: 1693
+      note: "Developed independently in Japan and Europe."
+      attributions:
+        - name: "Seki Takakazu"
+          wikipedia: Seki_Takakazu
+        - name: "Gottfried Wilhelm Leibniz"
+          wikipedia: Gottfried_Wilhelm_Leibniz
+  - id: linear-independence
+    group: linear-algebra
+    label: "Linear Independence"
+    wikipedia: Linear_independence
+    maturityLevel: undergraduate
+    description: "A set of vectors is independent when none can be built from the others; the key to bases and dimension."
+    history:
+      from: 1844
+      circa: true
+      note: "Central to Grassmann's theory of extension."
+      attributions:
+        - name: "Hermann Grassmann"
+          wikipedia: Hermann_Grassmann
+  - id: vector-spaces
+    group: linear-algebra
+    label: "Vector Spaces"
+    wikipedia: Vector_space
+    maturityLevel: undergraduate
+    description: "Abstract settings where vectors can be added and scaled, unifying geometry, polynomials, and functions."
+    history:
+      from: 1888
+      note: "Axiomatized by Peano, building on Grassmann."
+      attributions:
+        - name: "Giuseppe Peano"
+          wikipedia: Giuseppe_Peano
+  - id: linear-transformations
+    group: linear-algebra
+    label: "Linear Transformations"
+    wikipedia: Linear_map
+    maturityLevel: undergraduate
+    description: "Maps between vector spaces that preserve addition and scaling; every matrix represents one."
+    history:
+      from: 1858
+      circa: true
+      note: "Studied through their matrices from Cayley onward."
+      attributions:
+        - name: "Arthur Cayley"
+          wikipedia: Arthur_Cayley
+  - id: eigenvalues
+    group: linear-algebra
+    label: "Eigenvalues & Eigenvectors"
+    wikipedia: Eigenvalues_and_eigenvectors
+    maturityLevel: undergraduate
+    description: "Special directions a transformation only stretches, and the stretch factors; central to dynamics and data analysis."
+    history:
+      from: 1826
+      circa: true
+      note: "Emerged from Cauchy's work on quadratic forms and principal axes."
+      attributions:
+        - name: "Augustin-Louis Cauchy"
+          wikipedia: Augustin-Louis_Cauchy
+
+  - id: probability
+    group: probability-statistics
+    label: "Probability"
+    wikipedia: Probability
+    maturityLevel: elementary
+    description: "Assigning numbers between 0 and 1 to how likely events are, and computing with them."
+    history:
+      from: 1654
+      note: "Founded in the Pascal-Fermat correspondence; Cardano had analyzed dice a century earlier."
+      attributions:
+        - name: "Blaise Pascal"
+          wikipedia: Blaise_Pascal
+        - name: "Pierre de Fermat"
+          wikipedia: Pierre_de_Fermat
+  - id: conditional-probability
+    group: probability-statistics
+    label: "Conditional Probability"
+    wikipedia: Conditional_probability
+    maturityLevel: high-school
+    description: "The probability of one event given that another has occurred."
+    history:
+      from: 1718
+      circa: true
+      note: "Compound-event calculations in The Doctrine of Chances."
+      attributions:
+        - name: "Abraham de Moivre"
+          wikipedia: Abraham_de_Moivre
+  - id: bayes-theorem
+    group: probability-statistics
+    label: "Bayes' Theorem"
+    wikipedia: Bayes'_theorem
+    maturityLevel: undergraduate
+    description: "How to update probabilities in light of new evidence, by reversing conditional probabilities."
+    history:
+      from: 1763
+      to: 1774
+      note: "Published posthumously for Bayes; generalized by Laplace."
+      attributions:
+        - name: "Thomas Bayes"
+          wikipedia: Thomas_Bayes
+        - name: "Pierre-Simon Laplace"
+          wikipedia: Pierre-Simon_Laplace
+  - id: descriptive-statistics
+    group: probability-statistics
+    label: "Descriptive Statistics"
+    wikipedia: Descriptive_statistics
+    maturityLevel: elementary
+    description: "Summarizing data with measures like mean, median, and spread, and with charts."
+    history:
+      from: 1662
+      note: "John Graunt's tables of London mortality founded descriptive statistics."
+      attributions:
+        - name: "John Graunt"
+          wikipedia: John_Graunt
+  - id: random-variables
+    group: probability-statistics
+    label: "Random Variables"
+    wikipedia: Random_variable
+    maturityLevel: high-school
+    description: "Numerical outcomes of random processes, letting probability be studied with functions and algebra."
+    history:
+      from: 1933
+      note: "Informally as old as probability; defined precisely in Kolmogorov's axiomatization."
+      attributions:
+        - name: "Andrey Kolmogorov"
+          wikipedia: Andrey_Kolmogorov
+  - id: probability-distributions
+    group: probability-statistics
+    label: "Probability Distributions"
+    wikipedia: Probability_distribution
+    maturityLevel: high-school
+    description: "The complete description of how likely each value of a random variable is."
+    history:
+      from: 1718
+      to: 1812
+      circa: true
+      attributions:
+        - name: "Abraham de Moivre"
+          wikipedia: Abraham_de_Moivre
+        - name: "Pierre-Simon Laplace"
+          wikipedia: Pierre-Simon_Laplace
+  - id: expected-value
+    group: probability-statistics
+    label: "Expected Value"
+    wikipedia: Expected_value
+    maturityLevel: high-school
+    description: "The long-run average of a random quantity, weighting each outcome by its probability."
+    history:
+      from: 1654
+      to: 1657
+      note: "Formulated for fair division of stakes; systematized in Huygens's textbook."
+      attributions:
+        - name: "Blaise Pascal"
+          wikipedia: Blaise_Pascal
+        - name: "Christiaan Huygens"
+          wikipedia: Christiaan_Huygens
+  - id: normal-distribution
+    group: probability-statistics
+    label: "The Normal Distribution"
+    wikipedia: Normal_distribution
+    maturityLevel: high-school
+    description: "The bell curve that appears throughout nature and statistics, characterized by its mean and standard deviation."
+    history:
+      from: 1733
+      to: 1809
+      attributions:
+        - name: "Abraham de Moivre"
+          wikipedia: Abraham_de_Moivre
+        - name: "Carl Friedrich Gauss"
+          wikipedia: Carl_Friedrich_Gauss
+        - name: "Pierre-Simon Laplace"
+          wikipedia: Pierre-Simon_Laplace
+  - id: central-limit-theorem
+    group: probability-statistics
+    label: "Central Limit Theorem"
+    wikipedia: Central_limit_theorem
+    maturityLevel: undergraduate
+    description: "Averages of many independent random quantities are approximately normally distributed, whatever the original distribution."
+    history:
+      from: 1733
+      to: 1901
+      note: "From de Moivre's special case to Lyapunov's general proof."
+      attributions:
+        - name: "Abraham de Moivre"
+          wikipedia: Abraham_de_Moivre
+        - name: "Pierre-Simon Laplace"
+          wikipedia: Pierre-Simon_Laplace
+        - name: "Aleksandr Lyapunov"
+          wikipedia: Aleksandr_Lyapunov
+  - id: hypothesis-testing
+    group: probability-statistics
+    label: "Hypothesis Testing"
+    wikipedia: Statistical_hypothesis_testing
+    maturityLevel: undergraduate
+    description: "Deciding whether data provide convincing evidence against a default assumption, using p-values and significance."
+    history:
+      from: 1925
+      to: 1933
+      note: "Fisher's significance tests and the Neyman-Pearson framework."
+      attributions:
+        - name: "Ronald Fisher"
+          wikipedia: Ronald_Fisher
+        - name: "Jerzy Neyman"
+          wikipedia: Jerzy_Neyman
+        - name: "Egon Pearson"
+          wikipedia: Egon_Pearson
+  - id: regression
+    group: probability-statistics
+    label: "Regression"
+    wikipedia: Regression_analysis
+    maturityLevel: undergraduate
+    description: "Fitting lines and curves to data to model and predict the relationship between variables."
+    history:
+      from: 1805
+      to: 1886
+      note: "Least squares from Legendre and Gauss; the term is Galton's."
+      attributions:
+        - name: "Adrien-Marie Legendre"
+          wikipedia: Adrien-Marie_Legendre
+        - name: "Carl Friedrich Gauss"
+          wikipedia: Carl_Friedrich_Gauss
+        - name: "Francis Galton"
+          wikipedia: Francis_Galton
+
+  - id: sets
+    group: discrete-math
+    label: "Sets"
+    wikipedia: Set_(mathematics)
+    maturityLevel: high-school
+    description: "Collections of distinct objects, with operations like union and intersection; the standard foundation for mathematics."
+    history:
+      from: 1874
+      note: "Founded in Cantor's work on infinite collections."
+      attributions:
+        - name: "Georg Cantor"
+          wikipedia: Georg_Cantor
+  - id: logic
+    group: discrete-math
+    label: "Propositional Logic"
+    wikipedia: Propositional_calculus
+    maturityLevel: high-school
+    description: "The rules of valid reasoning with statements, connectives, and truth tables."
+    history:
+      from: -350
+      to: 1879
+      circa: true
+      note: "From Aristotle's syllogisms through Boole's algebra to Frege's propositional calculus."
+      attributions:
+        - name: "Aristotle"
+          wikipedia: Aristotle
+        - name: "George Boole"
+          wikipedia: George_Boole
+        - name: "Gottlob Frege"
+          wikipedia: Gottlob_Frege
+  - id: proofs
+    group: discrete-math
+    label: "Mathematical Proof"
+    wikipedia: Mathematical_proof
+    maturityLevel: high-school
+    description: "Rigorous arguments that establish mathematical truths beyond doubt, including direct proof and contradiction."
+    history:
+      from: -600
+      to: -300
+      circa: true
+      note: "Deductive proof emerged in Greek geometry and was codified in Euclid's Elements."
+      attributions:
+        - name: "Thales of Miletus"
+          wikipedia: Thales_of_Miletus
+        - name: "Euclid"
+          wikipedia: Euclid
+  - id: induction
+    group: discrete-math
+    label: "Mathematical Induction"
+    wikipedia: Mathematical_induction
+    maturityLevel: high-school
+    description: "Proving a statement for all natural numbers by establishing a base case and a step from each number to the next."
+    history:
+      from: 1575
+      to: 1665
+      circa: true
+      note: "First explicit uses; implicit instances are much older."
+      attributions:
+        - name: "Francesco Maurolico"
+          wikipedia: Francesco_Maurolico
+        - name: "Blaise Pascal"
+          wikipedia: Blaise_Pascal
+  - id: combinatorics
+    group: discrete-math
+    label: "Combinatorics"
+    wikipedia: Combinatorics
+    maturityLevel: high-school
+    description: "Systematic counting: permutations, combinations, and the art of enumerating arrangements."
+    history:
+      from: -300
+      to: 1654
+      circa: true
+      note: "From Pingala's binary-like meters to Pascal's treatise on the arithmetical triangle."
+      attributions:
+        - name: "Pingala"
+          wikipedia: Pingala
+        - name: "Blaise Pascal"
+          wikipedia: Blaise_Pascal
+  - id: graph-theory
+    group: discrete-math
+    label: "Graph Theory"
+    wikipedia: Graph_theory
+    maturityLevel: undergraduate
+    description: "Networks of vertices connected by edges, modeling everything from road maps to dependencies like this one."
+    history:
+      from: 1736
+      note: "Born with Euler's resolution of the Seven Bridges of Königsberg."
+      attributions:
+        - name: "Leonhard Euler"
+          wikipedia: Leonhard_Euler
+  - id: modular-arithmetic
+    group: discrete-math
+    label: "Modular Arithmetic"
+    wikipedia: Modular_arithmetic
+    maturityLevel: undergraduate
+    description: "Arithmetic with remainders, where numbers wrap around a modulus like hours on a clock; the basis of cryptography."
+    history:
+      from: 1801
+      note: "Introduced with congruence notation in the Disquisitiones Arithmeticae."
+      attributions:
+        - name: "Carl Friedrich Gauss"
+          wikipedia: Carl_Friedrich_Gauss
+
+  - id: groups
+    group: abstract-algebra
+    label: "Groups"
+    wikipedia: Group_(mathematics)
+    maturityLevel: undergraduate
+    description: "Sets with a single associative, invertible operation; the abstract theory of symmetry."
+    history:
+      from: 1832
+      to: 1854
+      note: "Galois named the concept; Cayley gave the abstract definition."
+      attributions:
+        - name: "Évariste Galois"
+          wikipedia: Évariste_Galois
+        - name: "Arthur Cayley"
+          wikipedia: Arthur_Cayley
+  - id: rings
+    group: abstract-algebra
+    label: "Rings"
+    wikipedia: Ring_(mathematics)
+    maturityLevel: undergraduate
+    description: "Structures with both addition and multiplication, modeled on the integers."
+    history:
+      from: 1871
+      to: 1921
+      note: "From Dedekind's ideals to Noether's abstract axioms."
+      attributions:
+        - name: "Richard Dedekind"
+          wikipedia: Richard_Dedekind
+        - name: "Emmy Noether"
+          wikipedia: Emmy_Noether
+  - id: fields
+    group: abstract-algebra
+    label: "Fields"
+    wikipedia: Field_(mathematics)
+    maturityLevel: undergraduate
+    description: "Rings in which every nonzero element has a multiplicative inverse, such as the rationals, reals, and complex numbers."
+    history:
+      from: 1830
+      to: 1910
+      note: "From Galois's finite fields to Steinitz's abstract theory."
+      attributions:
+        - name: "Évariste Galois"
+          wikipedia: Évariste_Galois
+        - name: "Richard Dedekind"
+          wikipedia: Richard_Dedekind
+        - name: "Ernst Steinitz"
+          wikipedia: Ernst_Steinitz
+
+dependencies:
+  # ---------------------------------------------------------------------------
+  # Numbers & counting
+  # ---------------------------------------------------------------------------
+  - counting -> natural-numbers
+  - natural-numbers -> place-value
+  - natural-numbers -> number-line
+
+  # ---------------------------------------------------------------------------
+  # Arithmetic
+  # ---------------------------------------------------------------------------
+  - counting -> addition
+  - natural-numbers -> addition
+  - addition -> subtraction
+  - addition -> multiplication -> division
+  - division -> fractions
+  - place-value -> decimals
+  - fractions -> decimals -> percentages
+  - fractions -> ratios
+  - division -> ratios
+  - addition -> order-of-operations
+  - multiplication -> order-of-operations
+  - multiplication -> exponentiation -> square-roots
+
+  # ---------------------------------------------------------------------------
+  # Number systems
+  # ---------------------------------------------------------------------------
+  - subtraction -> integers
+  - number-line -> integers
+  - fractions -> rational-numbers
+  - integers -> rational-numbers
+  - square-roots -> irrational-numbers
+  - rational-numbers -> irrational-numbers
+  - rational-numbers -> real-numbers
+  - irrational-numbers -> real-numbers
+  - real-numbers -> complex-numbers
+  - square-roots -> complex-numbers
+  - quadratic-equations -> complex-numbers
+  - complex-numbers -> quaternions
+  - natural-numbers -> prime-numbers
+  - division -> prime-numbers
+
+  # ---------------------------------------------------------------------------
+  # Algebra
+  # ---------------------------------------------------------------------------
+  - integers -> variables
+  - variables -> algebraic-expressions
+  - order-of-operations -> algebraic-expressions
+  - algebraic-expressions -> linear-equations
+  - linear-equations -> inequalities
+  - number-line -> inequalities
+  - linear-equations -> systems-of-equations
+  - algebraic-expressions -> polynomials
+  - exponentiation -> polynomials
+  - polynomials -> factoring
+  - prime-numbers -> factoring
+  - factoring -> quadratic-equations
+  - square-roots -> quadratic-equations
+  - exponentiation -> logarithms
+  - exponential-functions -> logarithms
+
+  # ---------------------------------------------------------------------------
+  # Geometry
+  # ---------------------------------------------------------------------------
+  - angles -> triangles
+  - multiplication -> area
+  - area -> volume
+  - triangles -> congruence -> similarity
+  - ratios -> similarity
+  - triangles -> pythagorean-theorem
+  - square-roots -> pythagorean-theorem
+  - number-line -> coordinate-geometry
+  - linear-equations -> coordinate-geometry
+  - pythagorean-theorem -> coordinate-geometry
+
+  # ---------------------------------------------------------------------------
+  # Trigonometry
+  # ---------------------------------------------------------------------------
+  - triangles -> trig-functions
+  - similarity -> trig-functions
+  - angles -> radians
+  - circles -> radians
+  - radians -> unit-circle
+  - trig-functions -> unit-circle
+  - unit-circle -> trig-identities
+  - pythagorean-theorem -> trig-identities
+  - algebraic-expressions -> trig-identities
+  - trig-functions -> inverse-trig-functions
+  - inverse-functions -> inverse-trig-functions
+  - unit-circle -> polar-coordinates
+  - coordinate-geometry -> polar-coordinates
+
+  # ---------------------------------------------------------------------------
+  # Functions & graphs
+  # ---------------------------------------------------------------------------
+  - variables -> functions
+  - functions -> graphing
+  - graphing -> slope
+  - ratios -> slope
+  - functions -> function-composition -> inverse-functions
+  - exponentiation -> exponential-functions
+  - functions -> exponential-functions
+  - natural-numbers -> sequences
+  - functions -> sequences
+
+  # ---------------------------------------------------------------------------
+  # Calculus
+  # ---------------------------------------------------------------------------
+  - functions -> limits
+  - sequences -> limits
+  - limits -> continuity
+  - limits -> derivatives
+  - slope -> derivatives
+  - derivatives -> chain-rule
+  - function-composition -> chain-rule
+  - limits -> integrals
+  - area -> integrals
+  - derivatives -> fundamental-theorem-of-calculus
+  - integrals -> fundamental-theorem-of-calculus
+  - fundamental-theorem-of-calculus -> integration-techniques
+  - chain-rule -> integration-techniques
+  - trig-identities -> integration-techniques
+  - logarithms -> integration-techniques
+  - sequences -> infinite-series
+  - limits -> infinite-series
+  - infinite-series -> taylor-series
+  - derivatives -> taylor-series
+  - derivatives -> partial-derivatives
+  - vectors -> partial-derivatives
+  - derivatives -> differential-equations
+  - integrals -> differential-equations
+  - limits -> real-analysis
+  - proofs -> real-analysis
+  - real-numbers -> real-analysis
+  - infinite-series -> real-analysis
+
+  # ---------------------------------------------------------------------------
+  # Linear algebra
+  # ---------------------------------------------------------------------------
+  - coordinate-geometry -> vectors
+  - vectors -> dot-product
+  - trig-functions -> dot-product
+  - systems-of-equations -> matrices
+  - vectors -> matrices
+  - matrices -> determinants
+  - vectors -> linear-independence
+  - matrices -> linear-independence
+  - linear-independence -> vector-spaces
+  - sets -> vector-spaces
+  - matrices -> linear-transformations
+  - vector-spaces -> linear-transformations
+  - functions -> linear-transformations
+  - determinants -> eigenvalues
+  - linear-transformations -> eigenvalues
+  - polynomials -> eigenvalues
+
+  # ---------------------------------------------------------------------------
+  # Probability & statistics
+  # ---------------------------------------------------------------------------
+  - fractions -> probability
+  - probability -> conditional-probability -> bayes-theorem
+  - division -> descriptive-statistics
+  - graphing -> descriptive-statistics
+  - probability -> random-variables
+  - functions -> random-variables
+  - random-variables -> probability-distributions
+  - probability-distributions -> expected-value
+  - probability-distributions -> normal-distribution
+  - integrals -> normal-distribution
+  - normal-distribution -> central-limit-theorem
+  - expected-value -> central-limit-theorem
+  - central-limit-theorem -> hypothesis-testing
+  - descriptive-statistics -> hypothesis-testing
+  - descriptive-statistics -> regression
+  - slope -> regression
+  - linear-equations -> regression
+
+  # ---------------------------------------------------------------------------
+  # Discrete mathematics
+  # ---------------------------------------------------------------------------
+  - logic -> proofs
+  - sets -> proofs
+  - proofs -> induction
+  - natural-numbers -> induction
+  - algebraic-expressions -> induction
+  - counting -> combinatorics
+  - multiplication -> combinatorics
+  - sets -> graph-theory
+  - combinatorics -> graph-theory
+  - integers -> modular-arithmetic
+  - division -> modular-arithmetic
+  - prime-numbers -> modular-arithmetic
+
+  # ---------------------------------------------------------------------------
+  # Abstract algebra
+  # ---------------------------------------------------------------------------
+  - sets -> groups
+  - proofs -> groups
+  - modular-arithmetic -> groups
+  - matrices -> groups
+  - groups -> rings
+  - integers -> rings
+  - matrices -> rings
+  - rings -> fields
+  - rational-numbers -> fields

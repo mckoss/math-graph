@@ -1,11 +1,10 @@
 import { mount } from 'svelte'
 import './app.css'
 import App from './App.svelte'
-import { parseCurriculum } from './lib/curriculum/parser'
-import curriculumSource from './data/curriculum.yaml?raw'
+import knowledgeBaseSource from './data/knowledge-base.yaml?raw'
+import { loadKnowledgeBase } from './lib/knowledge-base/load'
 
-const { graph, errors } = parseCurriculum(curriculumSource)
-if (errors.length > 0) console.error('curriculum.yaml parse errors:', errors)
+const graph = loadKnowledgeBase(knowledgeBaseSource)
 
 const app = mount(App, { target: document.getElementById('app')!, props: { graph } })
 export default app

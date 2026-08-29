@@ -1,107 +1,190 @@
-# Curriculum knowledge-base schema
+# Knowledge-base schema
 
-The math concept graph is described by a single YAML file,
-`src/data/curriculum.yaml`, parsed by `parseCurriculum()` in
-`src/lib/curriculum/parser.ts` into the `ConceptGraph` defined in
-`src/lib/types.ts`. YAML was chosen for its comments, git-diff-friendly
-line orientation, and attribute extensibility (a new node attribute is a
-parser change only, never a syntax change).
+Math Graph's canonical knowledge base is
+`src/data/knowledge-base.yaml`. `loadKnowledgeBase()` in
+`src/lib/knowledge-base/` reads it with the standard YAML library and
+mechanically normalizes it into the `ConceptGraph` used by the interface. The
+unit suite checks the parsed value against the checked-in JSON Schema at
+`src/data/knowledge-base.schema.json` and separately verifies semantic graph
+invariants.
+
+The YAML document owns the content taxonomy as well as the content itself.
+Maturity ids, labels, ordering, descriptions, and colors are data—not constants
+in the TypeScript application. Groups may nest to any depth, while concepts
+remain a flat collection that references group ids.
 
 ## Top level
 
-Three optional top-level keys, all lists:
+The canonical document has four top-level lists:
 
 ```yaml
-categories:   # category nodes, each containing its concepts
-concepts:     # optional: top-level concepts that belong to no category
-edges:        # dependency edges, written as "->" chain strings
+maturityLevels:  # ordered display metadata for horizontal maturity bands
+groups:          # recursively nested organizational groups
+concepts:        # flat concept records with group and maturity references
+dependencies:    # prerequisite chains written with "->"
 ```
 
-## Categories and concepts
+All ids share the same kebab-case format and one global namespace. A maturity
+level, group, subgroup, or concept may not reuse another record's id.
 
-A **category** becomes a node with `isCategory: true`; each concept in its
-`concepts` list gets `parent` set to the category's id. Nesting is one level
-only — a concept may not contain `concepts` (the parser rejects it).
+## Maturity levels
+
+Maturity levels control band order, labels, and colors in the visualization.
+The current knowledge base defines elementary (grades 1–8), high school
+(grades 9–12), undergraduate, and graduate levels, but the loader and
+visualization do not hard-code that set.
 
 ```yaml
-categories:
-  - id: number-systems             # required, kebab-case, globally unique
-    label: "Number Systems"        # required, display name
-    wikipedia: Number_system       # optional, en.wikipedia.org article title
-    description: "Successive enlargements of the idea of number."  # optional
-    concepts:
-      - id: natural-numbers
-        label: "Natural Numbers"
-        wikipedia: Natural_number
-        stage: elementary          # optional: elementary | middle |
-                                   #   high-school | undergraduate
-        description: "The counting numbers 1, 2, 3, ..."
+maturityLevels:
+  - id: elementary
+    label: Elementary
+    order: 1
+    color: "#d9920f"
+    tint: "#fbeccd"
+    gradeRange: { from: 1, to: 8 }
+    description: "Foundational school mathematics"
 ```
 
-Field reference (same keys for categories and concepts, except `concepts`,
-which only categories may have):
+| Key           | Required | Value |
+| ------------- | -------- | ----- |
+| `id`          | yes      | globally unique kebab-case id |
+| `label`       | yes      | display label |
+| `order`       | yes      | numeric top-to-bottom sort order; unique among maturity levels |
+| `color`       | yes      | CSS color for strong accents |
+| `tint`        | yes      | CSS color for light backgrounds |
+| `gradeRange`  | no       | inclusive `{ from, to }` school-grade range |
+| `description` | no       | plain-language range or explanation, such as grade coverage |
 
-| Key           | Required | Value                                                     |
-| ------------- | -------- | --------------------------------------------------------- |
-| `id`          | yes      | kebab-case string (`[a-z0-9]+(-[a-z0-9]+)*`), unique across the whole file |
-| `label`       | yes      | display name string                                        |
-| `wikipedia`   | no       | English Wikipedia article title, the part after `/wiki/` (e.g. `Complex_number`) |
-| `stage`       | no       | one of `elementary`, `middle`, `high-school`, `undergraduate` |
-| `description` | no       | one- or two-sentence plain-language string                 |
-| `concepts`    | no       | (categories only) list of concept entries                  |
+Every configured level produces a horizontal band, even when no current
+concept uses it.
 
-Unknown keys are reported as errors (so typos like `wikpedia:` get caught),
-but the rest of the node is still used.
+## Groups
 
-## Edges
-
-Each edge entry is a **string** containing one or more `->` arrows.
-`a -> b` means *a is a prerequisite of b* — the arrow points from the
-foundation toward the concept that builds on it. Chains expand into pairs:
-`a -> b -> c` is `a -> b` plus `b -> c`.
+Groups organize related concepts and may contain recursive `groups` lists.
+Concepts are not nested inside groups; each concept references its most
+specific group by id. This keeps concept records easy to search and edit while
+allowing the taxonomy to grow beyond a fixed depth.
 
 ```yaml
-edges:
-  # "a -> b -> c" means a is prerequisite of b, b of c
-  - natural-numbers -> integers -> rational-numbers
-  - counting -> natural-numbers
-  - algebra -> calculus       # category ids may appear in edges too
+groups:
+  - id: number-systems
+    label: Number Systems
+    wikipedia: Number_system
+    description: "Successive enlargements of the idea of number."
+    groups:
+      - id: higher-number-systems
+        label: Higher Number Systems
 ```
 
-Edges may reference concepts across categories, and category ids themselves
-(used for field-level dependencies, since the visualization initially shows
-only categories). Exact duplicate edges are silently ignored.
+| Key           | Required | Value |
+| ------------- | -------- | ----- |
+| `id`          | yes      | globally unique kebab-case id |
+| `label`       | yes      | display label |
+| `wikipedia`   | no       | English Wikipedia article title, after `/wiki/` |
+| `description` | no       | one- or two-sentence plain-language description |
+| `groups`      | no       | recursively nested subgroup records |
 
-## Validation
+The loader flattens groups into graph nodes with parent links. Collapsed group
+placement uses the median maturity of descendant concepts, so it remains
+deterministic at any nesting depth.
 
-`parseCurriculum(source)` never throws. It returns
-`{ graph, errors }` where every error carries a 1-based source line number,
-and the valid portion of the graph is always returned:
+## Concepts
 
-- **YAML syntax errors** — each reported with its line; the semantic pass
-  still runs on whatever parsed.
-- **Structural errors** — non-mapping node entries, non-list sections,
-  wrong value types, missing `id`/`label` (a node missing only its `label`
-  is kept, with the id as its label).
-- **Unknown keys** — on nodes and at the top level.
-- **Bad ids** — non-kebab-case ids, duplicate ids (first definition wins).
-- **Bad stages** — anything outside the four-value enum.
-- **Bad edges** — non-string entries, missing `->`, malformed ids,
-  references to unknown ids, self-dependencies.
-- **Cycles** — the dependency graph must be a DAG; each cycle is reported
-  as `dependency cycle: a -> b -> a` with the line of the edge that closes
-  it.
-
-## Example with an error
+Concepts form one flat list:
 
 ```yaml
 concepts:
-  - id: counting
-    label: Counting
-    stage: kindergarden      # error (line 4): unknown stage "kindergarden"
-edges:
-  - counting -> subitizing   # error (line 6): unknown id "subitizing"
+  - id: natural-numbers
+    label: Natural Numbers
+    group: number-systems
+    maturityLevel: elementary
+    wikipedia: Natural_number
+    description: "The counting numbers 1, 2, 3, ..."
 ```
 
-Both errors are reported; the `counting` node (without a stage) is still in
-the returned graph.
+| Key            | Required | Value |
+| -------------- | -------- | ----- |
+| `id`            | yes      | globally unique kebab-case id |
+| `label`         | yes      | display label |
+| `group`         | yes      | id of an existing group or subgroup |
+| `maturityLevel` | yes      | id of an existing maturity-level record |
+| `wikipedia`     | no       | English Wikipedia article title, after `/wiki/` |
+| `description`   | no       | one- or two-sentence plain-language description |
+| `history`       | no       | development period or milestones; concepts only |
+
+Unknown keys fail schema validation, so typos such as `wikipeda` or
+`maturitylevel` are caught.
+
+## Historical metadata (`history`)
+
+A concept may carry a `history` block describing a period of development or a
+set of important milestones. Dates and names provide context; they do not
+necessarily identify a single inventor.
+
+```yaml
+- id: derivatives
+  label: Derivatives
+  group: calculus
+  maturityLevel: high-school
+  history:
+    from: 1665
+    to: 1687
+    circa: true
+    note: "Developed independently."
+    attributions:
+      - name: Isaac Newton
+        wikipedia: Isaac_Newton
+      - name: Gottfried Wilhelm Leibniz
+        wikipedia: Gottfried_Wilhelm_Leibniz
+```
+
+| Key            | Required | Value |
+| -------------- | -------- | ----- |
+| `from`, `to`   | no       | signed integer years (`-300` means 300 BCE); `from <= to`; year zero is not used |
+| `circa`        | no       | boolean marking approximate dating |
+| `note`         | no       | free-text explanation of the recorded milestones |
+| `attributions` | no       | associated people or cultures as `{ name, wikipedia? }` records |
+
+Use `note` to distinguish discovery, notation, formalization, publication, and
+generalization. Name cultures when an individual attribution would overstate
+the evidence, and include multiple names for distinct contributions or
+independent work. A date range without names is preferable to false precision;
+accuracy takes priority over completeness.
+
+## Dependencies
+
+Every stored dependency connects concepts. `a -> b` means *a is a prerequisite
+of b*: arrows flow from foundations toward concepts that build on them. Chains
+expand into adjacent pairs.
+
+```yaml
+dependencies:
+  - counting -> natural-numbers -> integers
+  - natural-numbers -> prime-numbers
+```
+
+Group-to-group and group-to-concept dependencies are invalid. Links displayed
+for collapsed groups are aggregates derived from underlying concept
+dependencies, never stored simplifications. Cross-group concept dependencies
+are expected. Backward maturity links should appear only when the knowledge
+base explicitly justifies the exception.
+
+## Validation
+
+The JSON Schema enforces document shape, required fields, value types,
+recursive group structure, allowed keys, and kebab-case reference syntax. The
+unit suite enforces relationships that require a global view of the data:
+
+- ids are globally unique across maturity levels, groups, subgroups, and
+  concepts;
+- maturity `order` values are unique;
+- every concept's `group` and `maturityLevel` references exist;
+- dependency endpoints exist and are concepts, not groups;
+- dependencies contain no self-links or duplicate expanded pairs;
+- the concept dependency graph is acyclic;
+- historical ranges use signed BCE years, omit year zero, and satisfy
+  `from <= to`;
+- backward maturity dependencies are absent unless deliberately documented.
+
+Invalid source blocks a passing test run and therefore cannot deploy through
+the normal GitHub Pages workflow.

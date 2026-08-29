@@ -1,14 +1,13 @@
 /**
  * Color system for the visualization.
  *
- * Stages follow a warm-to-cool progression as math advances:
- * gold (elementary) -> coral (middle) -> violet (high school) -> blue (undergraduate).
- * Categories each get their own hue, used to tint their children when expanded.
+ * Maturity labels, ordering, and colors come from the knowledge base. Groups
+ * get distinct hues here so expanded concepts retain a visual family link.
  */
 
-import type { Stage } from '../types';
+import type { MaturityLevel } from '../types';
 
-export interface StagePaint {
+export interface MaturityPaint {
   label: string;
   /** Strong color: borders, legend swatches, badges. */
   color: string;
@@ -16,43 +15,46 @@ export interface StagePaint {
   tint: string;
 }
 
-export const STAGE_ORDER: Stage[] = ['elementary', 'middle', 'high-school', 'undergraduate'];
-
-export const STAGE_PAINT: Record<Stage, StagePaint> = {
-  elementary: { label: 'Elementary', color: '#d9920f', tint: '#fbeccd' },
-  middle: { label: 'Middle school', color: '#d95f38', tint: '#fadfd2' },
-  'high-school': { label: 'High school', color: '#8256c8', tint: '#ebe1f9' },
-  undergraduate: { label: 'Undergraduate', color: '#2f6fc2', tint: '#d9e6f8' },
-};
-
-export const UNSTAGED_PAINT: StagePaint = {
+export const UNCLASSIFIED_PAINT: MaturityPaint = {
   label: 'General',
   color: '#7c8698',
   tint: '#e8ebf0',
 };
 
-export function stagePaint(stage?: Stage): StagePaint {
-  return stage !== undefined ? STAGE_PAINT[stage] : UNSTAGED_PAINT;
+export function orderedMaturityLevels(
+  levels: readonly MaturityLevel[],
+): MaturityLevel[] {
+  return [...levels].sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
 }
 
-export interface CategoryPaint {
-  /** Strong color: category node border and text accents. */
+export function maturityPaint(
+  levels: readonly MaturityLevel[],
+  levelId?: string,
+): MaturityPaint {
+  const level = levelId === undefined ? undefined : levels.find(({ id }) => id === levelId);
+  return level === undefined
+    ? UNCLASSIFIED_PAINT
+    : { label: level.label, color: level.color, tint: level.tint };
+}
+
+export interface GroupPaint {
+  /** Strong color: group node border and text accents. */
   color: string;
-  /** Light tint: category node fill. */
+  /** Light tint: group node fill. */
   tint: string;
-  /** Mid tone: soft halo behind children of the expanded category. */
+  /** Mid tone: soft halo behind children of the expanded group. */
   halo: string;
 }
 
-/** Hand-picked hues that read well against the stage palette. */
-const CATEGORY_HUES = [204, 158, 262, 22, 330, 96, 240, 42, 186, 300, 66, 12];
+/** Hand-picked group hues that read well on the light graph background. */
+const GROUP_HUES = [204, 158, 262, 22, 330, 96, 240, 42, 186, 300, 66, 12];
 
-/** Paint for the i-th category (by order of appearance in the graph). */
-export function categoryPaint(index: number): CategoryPaint {
-  const h = (CATEGORY_HUES[index % CATEGORY_HUES.length] + 9 * Math.floor(index / CATEGORY_HUES.length)) % 360;
+/** Paint for the i-th group (by order of appearance in the graph). */
+export function groupPaint(index: number): GroupPaint {
+  const h = (GROUP_HUES[index % GROUP_HUES.length] + 9 * Math.floor(index / GROUP_HUES.length)) % 360;
   return {
-    color: `hsl(${h} 42% 42%)`,
-    tint: `hsl(${h} 52% 93%)`,
-    halo: `hsl(${h} 55% 72%)`,
+    color: `hsl(${h}, 42%, 42%)`,
+    tint: `hsl(${h}, 52%, 93%)`,
+    halo: `hsl(${h}, 55%, 72%)`,
   };
 }

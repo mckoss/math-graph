@@ -1,11 +1,17 @@
 /**
  * A small hand-built ConceptGraph used by tests and dev experiments.
- * The real app data comes from src/data/curriculum.dsl via the DSL parser.
+ * The app loads its full graph from src/data/knowledge-base.yaml.
  */
 
 import type { ConceptGraph } from './types';
 
 export const sampleGraph: ConceptGraph = {
+  maturityLevels: [
+    { id: 'elementary', label: 'Elementary', order: 1, color: '#d9920f', tint: '#fbeccd' },
+    { id: 'high-school', label: 'High School', order: 2, color: '#d95f38', tint: '#fadfd2' },
+    { id: 'undergraduate', label: 'Undergraduate', order: 3, color: '#8256c8', tint: '#ebe1f9' },
+    { id: 'graduate', label: 'Graduate', order: 4, color: '#2f6fc2', tint: '#d9e6f8' },
+  ],
   nodes: [
     // -- Arithmetic ----------------------------------------------------------
     {
@@ -13,7 +19,7 @@ export const sampleGraph: ConceptGraph = {
       label: 'Arithmetic',
       wikipedia: 'Arithmetic',
       description: 'The art of working with numbers: counting, combining, and comparing quantities.',
-      isCategory: true,
+      isGroup: true,
     },
     {
       id: 'counting',
@@ -21,8 +27,8 @@ export const sampleGraph: ConceptGraph = {
       wikipedia: 'Counting',
       description: 'Assigning numbers to collections of things, one by one.',
       parent: 'arithmetic',
-      isCategory: false,
-      stage: 'elementary',
+      isGroup: false,
+      maturityLevel: 'elementary',
     },
     {
       id: 'addition',
@@ -30,8 +36,8 @@ export const sampleGraph: ConceptGraph = {
       wikipedia: 'Addition',
       description: 'Combining two quantities into a total.',
       parent: 'arithmetic',
-      isCategory: false,
-      stage: 'elementary',
+      isGroup: false,
+      maturityLevel: 'elementary',
     },
     {
       id: 'multiplication',
@@ -39,8 +45,8 @@ export const sampleGraph: ConceptGraph = {
       wikipedia: 'Multiplication',
       description: 'Repeated addition; scaling one quantity by another.',
       parent: 'arithmetic',
-      isCategory: false,
-      stage: 'elementary',
+      isGroup: false,
+      maturityLevel: 'elementary',
     },
     {
       id: 'fractions',
@@ -48,8 +54,8 @@ export const sampleGraph: ConceptGraph = {
       wikipedia: 'Fraction',
       description: 'Parts of a whole, written as one integer over another.',
       parent: 'arithmetic',
-      isCategory: false,
-      stage: 'elementary',
+      isGroup: false,
+      maturityLevel: 'elementary',
     },
     // -- Algebra -------------------------------------------------------------
     {
@@ -57,7 +63,7 @@ export const sampleGraph: ConceptGraph = {
       label: 'Algebra',
       wikipedia: 'Algebra',
       description: 'Reasoning about unknown quantities with symbols and equations.',
-      isCategory: true,
+      isGroup: true,
     },
     {
       id: 'variables',
@@ -65,8 +71,8 @@ export const sampleGraph: ConceptGraph = {
       wikipedia: 'Variable_(mathematics)',
       description: 'Letters that stand in for unknown or changing numbers.',
       parent: 'algebra',
-      isCategory: false,
-      stage: 'middle',
+      isGroup: false,
+      maturityLevel: 'elementary',
     },
     {
       id: 'linear-equations',
@@ -74,8 +80,8 @@ export const sampleGraph: ConceptGraph = {
       wikipedia: 'Linear_equation',
       description: 'Equations whose graphs are straight lines.',
       parent: 'algebra',
-      isCategory: false,
-      stage: 'middle',
+      isGroup: false,
+      maturityLevel: 'elementary',
     },
     {
       id: 'quadratic-equations',
@@ -83,8 +89,8 @@ export const sampleGraph: ConceptGraph = {
       wikipedia: 'Quadratic_equation',
       description: 'Equations involving a squared unknown.',
       parent: 'algebra',
-      isCategory: false,
-      stage: 'high-school',
+      isGroup: false,
+      maturityLevel: 'high-school',
     },
     // -- Geometry ------------------------------------------------------------
     {
@@ -92,7 +98,7 @@ export const sampleGraph: ConceptGraph = {
       label: 'Geometry',
       wikipedia: 'Geometry',
       description: 'The study of shape, size, and space.',
-      isCategory: true,
+      isGroup: true,
     },
     {
       id: 'shapes',
@@ -100,8 +106,8 @@ export const sampleGraph: ConceptGraph = {
       wikipedia: 'Shape',
       description: 'Triangles, circles, squares, and their properties.',
       parent: 'geometry',
-      isCategory: false,
-      stage: 'elementary',
+      isGroup: false,
+      maturityLevel: 'elementary',
     },
     {
       id: 'pythagorean-theorem',
@@ -109,8 +115,8 @@ export const sampleGraph: ConceptGraph = {
       wikipedia: 'Pythagorean_theorem',
       description: 'Relates the sides of a right triangle: a² + b² = c².',
       parent: 'geometry',
-      isCategory: false,
-      stage: 'middle',
+      isGroup: false,
+      maturityLevel: 'elementary',
     },
     {
       id: 'trigonometry',
@@ -118,8 +124,8 @@ export const sampleGraph: ConceptGraph = {
       wikipedia: 'Trigonometry',
       description: 'Ratios of triangle sides as functions of angles.',
       parent: 'geometry',
-      isCategory: false,
-      stage: 'high-school',
+      isGroup: false,
+      maturityLevel: 'high-school',
     },
     // -- Top-level (no parent) ----------------------------------------------
     {
@@ -127,8 +133,8 @@ export const sampleGraph: ConceptGraph = {
       label: 'Functions',
       wikipedia: 'Function_(mathematics)',
       description: 'Rules that assign each input exactly one output.',
-      isCategory: false,
-      stage: 'high-school',
+      isGroup: false,
+      maturityLevel: 'high-school',
     },
   ],
   edges: [

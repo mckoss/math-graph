@@ -6,14 +6,14 @@ const byId = nodesById(sampleGraph);
 const none = new Set<string>();
 
 describe('computeVisible', () => {
-  it('shows collapsed categories plus parentless nodes when nothing is expanded', () => {
+  it('shows collapsed groups plus parentless nodes when nothing is expanded', () => {
     const vis = computeVisible(sampleGraph, none);
     expect(vis.nodes.map((n) => n.id).sort()).toEqual(
       ['algebra', 'arithmetic', 'functions', 'geometry'].sort(),
     );
   });
 
-  it('remaps edges to category representatives without duplicates or self-loops', () => {
+  it('remaps edges to group representatives without duplicates or self-loops', () => {
     const vis = computeVisible(sampleGraph, none);
     const keys = vis.edges.map((e) => `${e.from}->${e.to}`);
     expect(new Set(keys).size).toBe(keys.length);
@@ -24,7 +24,7 @@ describe('computeVisible', () => {
     expect(keys).toContain('functions->geometry');
   });
 
-  it('replaces an expanded category with its children', () => {
+  it('replaces an expanded group with its children', () => {
     const vis = computeVisible(sampleGraph, new Set(['arithmetic']));
     const ids = vis.nodes.map((n) => n.id);
     expect(ids).not.toContain('arithmetic');
@@ -38,7 +38,7 @@ describe('computeVisible', () => {
 });
 
 describe('representativeOf', () => {
-  it('maps hidden children to their collapsed category', () => {
+  it('maps hidden children to their collapsed group', () => {
     expect(representativeOf(byId, none, 'addition')).toBe('arithmetic');
   });
 
@@ -47,7 +47,7 @@ describe('representativeOf', () => {
     expect(representativeOf(byId, new Set(['algebra']), 'variables')).toBe('variables');
   });
 
-  it('hides an expanded category itself', () => {
+  it('hides an expanded group itself', () => {
     expect(representativeOf(byId, new Set(['algebra']), 'algebra')).toBeNull();
   });
 });
