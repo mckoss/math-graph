@@ -60,9 +60,9 @@ the site displays it under the title.
    recursive groups, schema/runtime normalization, top-to-bottom colored
    maturity bands, unit validation, and minimal Playwright smoke coverage.
    Reviewed through `npm run dev` and accepted on 2026-08-29.
-2. **Responsive interaction layout (in progress):** landscape/portrait space
-   filling, dynamic zoom, and spring-coupled nearby-node dragging. Stop for a
-   user review through `npm run dev` before committing or publishing.
+2. **Responsive interaction layout (completed):** landscape/portrait space
+   filling, dynamic zoom, and spring-coupled nearby-node dragging. Reviewed
+   through `npm run dev` and accepted on 2026-08-29.
 3. **Persistence and study controls:** locally persisted positions resilient to
    added or removed nodes, plus `to-learn` / `have-learned` bookmarks.
 4. **Graph meaning and history:** weighted aggregate group-edge styling,
