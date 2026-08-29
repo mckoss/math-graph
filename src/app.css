@@ -1,0 +1,55 @@
+/* Global styles and design tokens for The Shape of Mathematics. */
+
+:root {
+  /* Palette: warm paper ground, deep ink header, gold accent. */
+  --paper: #f6f3ec;
+  --card: #fffdf8;
+  --ink: #23283a;
+  --ink-soft: #4c5163;
+  --ink-faint: #8b8fa0;
+  --cream: #f7f2e4;
+  --cream-dim: #b9b4a4;
+  --gold: #d9920f;
+  --link: #2f6fc2;
+  --line: #e4dfd2;
+  --hover: #f1ede2;
+  --grid-dot: #ddd7c8;
+
+  --sans: 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
+  --display: 'Fraunces', Georgia, 'Times New Roman', serif;
+
+  --soft-shadow: 0 1px 3px rgba(35, 40, 58, 0.08), 0 4px 14px rgba(35, 40, 58, 0.06);
+  --panel-shadow: 0 4px 10px rgba(35, 40, 58, 0.08), 0 14px 40px rgba(35, 40, 58, 0.14);
+
+  font: 15px/1.5 var(--sans);
+  color: var(--ink);
+  background: var(--paper);
+  color-scheme: light;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+#app {
+  height: 100svh;
+}
+
+button {
+  font-family: inherit;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--gold) 30%, transparent);
+}
