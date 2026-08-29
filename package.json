@@ -1,21 +1,24 @@
 {
   "name": "math-graph",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run",
+    "test": "vitest run src",
+    "test:e2e": "npm run build && playwright test",
     "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@sveltejs/vite-plugin-svelte": "^7.3.0",
     "@tsconfig/svelte": "^5.0.8",
     "@types/cytoscape": "^3.21.9",
     "@types/cytoscape-dagre": "^2.3.4",
     "@types/node": "^24.13.3",
+    "ajv": "^8.20.0",
     "svelte": "^5.56.10",
     "svelte-check": "^4.7.6",
     "typescript": "~6.0.2",

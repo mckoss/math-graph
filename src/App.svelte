@@ -1,8 +1,14 @@
 <script lang="ts">
-  import type { ConceptGraph, ConceptNode } from './lib/types';
+  import type { ConceptGraph, GraphNode } from './lib/types';
   import GraphView from './lib/viz/GraphView.svelte';
-  import { STAGE_ORDER, STAGE_PAINT, stagePaint } from './lib/viz/colors';
-  import { ancestorsOf, childrenByParent, conceptCountOf, nodesById } from './lib/viz/graph-model';
+  import { maturityPaint, orderedMaturityLevels } from './lib/viz/colors';
+  import {
+    ancestorsOf,
+    childrenByParent,
+    computeVisible,
+    conceptCountOf,
+    nodesById,
+  } from './lib/viz/graph-model';
 
   let { graph }: { graph: ConceptGraph } = $props();
 
@@ -12,8 +18,10 @@
 
   const byId = $derived(nodesById(graph));
   const children = $derived(childrenByParent(graph));
-  const categoryIds = $derived(graph.nodes.filter((n) => n.isCategory).map((n) => n.id));
-  const conceptCount = $derived(graph.nodes.filter((n) => !n.isCategory).length);
+  const groupIds = $derived(graph.nodes.filter((n) => n.isGroup).map((n) => n.id));
+  const conceptCount = $derived(graph.nodes.filter((n) => !n.isGroup).length);
+  const visibleGraph = $derived(computeVisible(graph, expanded));
+  const maturityLevels = $derived(orderedMaturityLevels(graph.maturityLevels));
 
   const selected = $derived(selectedId === null ? null : (byId.get(selectedId) ?? null));
   const prerequisites = $derived(
@@ -22,7 +30,7 @@
       : graph.edges
           .filter((e) => e.to === selected.id)
           .map((e) => byId.get(e.from))
-          .filter((n): n is ConceptNode => n !== undefined),
+          .filter((n): n is GraphNode => n !== undefined),
   );
   const dependents = $derived(
     selected === null
@@ -30,10 +38,10 @@
       : graph.edges
           .filter((e) => e.from === selected.id)
           .map((e) => byId.get(e.to))
-          .filter((n): n is ConceptNode => n !== undefined),
+          .filter((n): n is GraphNode => n !== undefined),
   );
 
-  /** Select a node; expand its ancestor categories so it is actually visible. */
+  /** Select a node; expand its ancestor groups so it is actually visible. */
   function selectNode(id: string | null): void {
     if (id !== null) {
       const ancestors = ancestorsOf(byId, id).filter((a) => !expanded.has(a));
@@ -42,11 +50,11 @@
     selectedId = id;
   }
 
-  function toggleCategory(id: string): void {
+  function toggleGroup(id: string): void {
     const next = new Set(expanded);
     if (next.has(id)) {
       next.delete(id);
-      // If the selection just got swallowed by the collapse, select the category.
+      // If the selection just got swallowed by the collapse, select the group.
       if (selectedId !== null && (selectedId === id || ancestorsOf(byId, selectedId).includes(id))) {
         selectedId = id;
       }
@@ -57,8 +65,8 @@
   }
 
   function expandAll(): void {
-    expanded = new Set(categoryIds);
-    if (selectedId !== null && byId.get(selectedId)?.isCategory) selectedId = null;
+    expanded = new Set(groupIds);
+    if (selectedId !== null && byId.get(selectedId)?.isGroup) selectedId = null;
   }
 
   function collapseAll(): void {
@@ -73,8 +81,11 @@
 <div class="shell">
   <header class="masthead">
     <div class="masthead-text">
-      <h1>The Shape of Mathematics <span class="version">v{__APP_VERSION__}</span></h1>
-      <p class="tagline">How mathematical ideas build on one another — from counting to calculus.</p>
+      <div class="masthead-titleline">
+        <h1>Math Graph</h1>
+        <span class="version">v{__APP_VERSION__}</span>
+      </div>
+      <p class="tagline">An interactive mathematics knowledge explorer — from counting to calculus.</p>
     </div>
     <div class="masthead-stats">
       <span><strong>{conceptCount}</strong> concepts</span>
@@ -83,15 +94,19 @@
     </div>
   </header>
 
-  <main class="stage">
+  <main class="graph-area">
     <GraphView
       bind:this={graphView}
       {graph}
       {expanded}
       {selectedId}
       onSelect={selectNode}
-      onToggleCategory={toggleCategory}
+      onToggleGroup={toggleGroup}
     />
+
+    <p class="sr-only" role="status" aria-live="polite">
+      Showing {visibleGraph.nodes.length} nodes and {visibleGraph.edges.length} connections.
+    </p>
 
     <div class="controls" role="toolbar" aria-label="Graph controls">
       <div class="control-group">
@@ -106,18 +121,18 @@
     </div>
 
     <div class="legend">
-      <span class="legend-title">Stage</span>
-      {#each STAGE_ORDER as stage (stage)}
+      <span class="legend-title">Maturity</span>
+      {#each maturityLevels as level (level.id)}
         <span class="legend-item">
-          <span class="swatch" style:background={STAGE_PAINT[stage].tint} style:border-color={STAGE_PAINT[stage].color}
+          <span class="swatch" style:background={level.tint} style:border-color={level.color}
           ></span>
-          {STAGE_PAINT[stage].label}
+          {level.label}
         </span>
       {/each}
     </div>
 
     <p class="hint" hidden={selected !== null}>
-      Click a node to explore it · double-click a category to open it
+      Click a node to explore it · double-click a group to open it
     </p>
 
     <aside class="panel" class:open={selected !== null} aria-hidden={selected === null}>
@@ -125,19 +140,19 @@
         <button class="close" aria-label="Close panel" onclick={() => (selectedId = null)}>×</button>
 
         <div class="panel-badges">
-          {#if selected.isCategory}
-            <span class="badge badge-category">
-              Category · {conceptCountOf(children, selected.id)} concepts
+          {#if selected.isGroup}
+            <span class="badge badge-group">
+              Group · {conceptCountOf(children, selected.id)} concepts
             </span>
           {/if}
-          {#if selected.stage !== undefined}
+          {#if selected.maturityLevel !== undefined}
             <span
               class="badge"
-              style:background={stagePaint(selected.stage).tint}
-              style:color={stagePaint(selected.stage).color}
-              style:border-color={stagePaint(selected.stage).color}
+              style:background={maturityPaint(maturityLevels, selected.maturityLevel).tint}
+              style:color={maturityPaint(maturityLevels, selected.maturityLevel).color}
+              style:border-color={maturityPaint(maturityLevels, selected.maturityLevel).color}
             >
-              {stagePaint(selected.stage).label}
+              {maturityPaint(maturityLevels, selected.maturityLevel).label}
             </span>
           {/if}
         </div>
@@ -148,9 +163,9 @@
           <p class="panel-desc">{selected.description}</p>
         {/if}
 
-        {#if selected.isCategory}
-          <button class="expand-btn" onclick={() => toggleCategory(selected.id)}>
-            {expanded.has(selected.id) ? '⊟ Collapse category' : '⊞ Expand category'}
+        {#if selected.isGroup}
+          <button class="expand-btn" onclick={() => toggleGroup(selected.id)}>
+            {expanded.has(selected.id) ? '⊟ Collapse group' : '⊞ Expand group'}
           </button>
         {/if}
 
@@ -159,7 +174,7 @@
           <div class="chips">
             {#each prerequisites as n (n.id)}
               <button class="chip" onclick={() => selectNode(n.id)}>
-                <span class="chip-dot" style:background={stagePaint(n.stage).color}></span>
+                <span class="chip-dot" style:background={maturityPaint(maturityLevels, n.maturityLevel).color}></span>
                 {n.label}
               </button>
             {/each}
@@ -171,7 +186,7 @@
           <div class="chips">
             {#each dependents as n (n.id)}
               <button class="chip" onclick={() => selectNode(n.id)}>
-                <span class="chip-dot" style:background={stagePaint(n.stage).color}></span>
+                <span class="chip-dot" style:background={maturityPaint(maturityLevels, n.maturityLevel).color}></span>
                 {n.label}
               </button>
             {/each}
@@ -221,14 +236,17 @@
     letter-spacing: 0.2px;
     color: var(--cream);
   }
+  .masthead-titleline {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+  }
   .version {
     font-family: var(--sans);
     font-weight: 500;
     font-size: 11px;
     letter-spacing: 0.04em;
     color: var(--cream-dim);
-    vertical-align: 6px;
-    margin-left: 4px;
   }
   .tagline {
     margin: 4px 0 0;
@@ -249,8 +267,8 @@
     margin: 0 6px;
   }
 
-  /* ---- Graph stage ---- */
-  .stage {
+  /* ---- Graph area ---- */
+  .graph-area {
     position: relative;
     flex: 1;
     min-height: 0;
@@ -258,6 +276,17 @@
       radial-gradient(circle, var(--grid-dot) 1px, transparent 1px) 0 0 / 26px 26px,
       var(--paper);
     overflow: hidden;
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 
   /* ---- Floating controls ---- */
@@ -408,7 +437,7 @@
     border-radius: 999px;
     border: 1px solid;
   }
-  .badge-category {
+  .badge-group {
     background: var(--hover);
     color: var(--ink-soft);
     border-color: var(--line);
