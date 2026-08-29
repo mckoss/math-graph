@@ -17,6 +17,8 @@ test('presents and operates the Math Graph knowledge explorer', async ({ page })
 
   const bands = page.locator('[role="list"][aria-label="Maturity levels"] .band');
   await expect(bands).toHaveCount(4);
+  const visualization = page.locator('.viz');
+  await expect(visualization).toHaveAttribute('data-layout-orientation', 'landscape');
   await expect(bands.locator('.band-label')).toHaveText([
     'Elementary · grades 1–8',
     'High School · grades 9–12',
@@ -27,6 +29,17 @@ test('presents and operates the Math Graph knowledge explorer', async ({ page })
     'aria-label',
     /Graduate: 0 visible nodes/,
   );
+
+  await page.setViewportSize({ width: 600, height: 900 });
+  await expect(visualization).toHaveAttribute('data-layout-orientation', 'portrait');
+  await expect(bands).toHaveCount(4);
+  for (const band of await bands.all()) {
+    const bounds = await band.boundingBox();
+    expect(bounds?.height).toBeGreaterThan(0);
+  }
+
+  await page.setViewportSize({ width: 1200, height: 700 });
+  await expect(visualization).toHaveAttribute('data-layout-orientation', 'landscape');
 
   const canvas = page.locator('.graph canvas').first();
   await expect(canvas).toBeVisible();

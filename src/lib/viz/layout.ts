@@ -28,6 +28,17 @@ export interface BBox {
   y2: number;
 }
 
+export type Orientation = 'landscape' | 'portrait';
+
+export interface AffineTransform {
+  /** Scale applied to model-space x coordinates. */
+  sx: number;
+  /** Scale applied to model-space y coordinates. */
+  sy: number;
+  /** Model-space center about which both scales are applied. */
+  center: Point;
+}
+
 function clamp(v: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, v));
 }
@@ -67,6 +78,11 @@ export const DEFAULT_FILL_CAPS: FillCaps = {
   minCompressX: 0.5,
   minCompressY: 0.5,
 };
+
+/** Square viewports use the landscape profile to make use of their width. */
+export function orientationFor(container: Size): Orientation {
+  return container.width >= container.height ? 'landscape' : 'portrait';
+}
 
 /**
  * Per-axis scale factors that bring a bbox of the given dimensions toward the
@@ -125,22 +141,54 @@ export function fillPositions(
   padding: number,
   caps: FillCaps = DEFAULT_FILL_CAPS,
 ): Map<string, Point> {
-  const out = new Map<string, Point>();
   const bbox = pointsBBox(positions.values());
-  if (bbox === null) return out;
+  if (bbox === null) return new Map();
+  return transformPositions(positions, fillTransformFor(bbox, container, padding, caps));
+}
+
+/**
+ * The shared affine transform for nodes and non-node model geometry such as
+ * maturity-band rectangles. Keeping one transform prevents background bands
+ * from drifting away from their nodes after responsive viewport changes.
+ */
+export function fillTransformFor(
+  bbox: BBox,
+  container: Size,
+  padding: number,
+  caps: FillCaps = DEFAULT_FILL_CAPS,
+): AffineTransform {
   const { sx, sy } = fillScales(
     bbox.x2 - bbox.x1,
     bbox.y2 - bbox.y1,
-    Math.max(1, container.width - 2 * padding),
-    Math.max(1, container.height - 2 * padding),
+    Math.max(1, container.width - 2 * Math.max(0, padding)),
+    Math.max(1, container.height - 2 * Math.max(0, padding)),
     caps,
   );
-  const cx = (bbox.x1 + bbox.x2) / 2;
-  const cy = (bbox.y1 + bbox.y2) / 2;
-  for (const [id, p] of positions) {
-    out.set(id, { x: cx + (p.x - cx) * sx, y: cy + (p.y - cy) * sy });
-  }
-  return out;
+  return {
+    sx,
+    sy,
+    center: { x: (bbox.x1 + bbox.x2) / 2, y: (bbox.y1 + bbox.y2) / 2 },
+  };
+}
+
+export function transformPoint(point: Point, transform: AffineTransform): Point {
+  return {
+    x: transform.center.x + (point.x - transform.center.x) * transform.sx,
+    y: transform.center.y + (point.y - transform.center.y) * transform.sy,
+  };
+}
+
+export function transformPositions(
+  positions: ReadonlyMap<string, Point>,
+  transform: AffineTransform,
+): Map<string, Point> {
+  return new Map([...positions].map(([id, point]) => [id, transformPoint(point, transform)]));
+}
+
+export function transformBBox(bbox: BBox, transform: AffineTransform): BBox {
+  const topLeft = transformPoint({ x: bbox.x1, y: bbox.y1 }, transform);
+  const bottomRight = transformPoint({ x: bbox.x2, y: bbox.y2 }, transform);
+  return { x1: topLeft.x, y1: topLeft.y, x2: bottomRight.x, y2: bottomRight.y };
 }
 
 /** The zoom and pan that center the given model bbox in the container. */
@@ -166,5 +214,43 @@ export function viewportFor(bbox: BBox, container: Size, padding: number): { zoo
 
 /** Dynamic zoom clamp around a fit zoom: a bit below fit up to a useful multiple. */
 export function zoomBoundsFor(fitZoom: number): { min: number; max: number } {
-  return { min: fitZoom * 0.8, max: fitZoom * 6 };
+  const safeFit = Number.isFinite(fitZoom) && fitZoom > 0 ? fitZoom : 1;
+  return { min: safeFit * 0.8, max: safeFit * 6 };
+}
+
+export interface ResponsiveGeometry {
+  orientation: Orientation;
+  spacing: Spacing;
+  transform: AffineTransform;
+  positions: Map<string, Point>;
+  /** Transformed bounds shared by the graph and maturity-band backgrounds. */
+  bounds: BBox;
+  viewport: { zoom: number; pan: Point };
+  zoomBounds: { min: number; max: number };
+}
+
+/**
+ * Compute all resize-sensitive geometry in one pure call. `sourceBounds`
+ * should combine the nodes' horizontal bounds with the full configured
+ * maturity-band vertical extent, including empty bands. Consumers can apply
+ * `transform` to every band rectangle with `transformBBox`.
+ */
+export function responsiveGeometryFor(
+  positions: ReadonlyMap<string, Point>,
+  sourceBounds: BBox,
+  container: Size,
+  padding: number,
+): ResponsiveGeometry {
+  const transform = fillTransformFor(sourceBounds, container, padding);
+  const bounds = transformBBox(sourceBounds, transform);
+  const viewport = viewportFor(bounds, container, padding);
+  return {
+    orientation: orientationFor(container),
+    spacing: deriveSpacing(container.width, container.height, positions.size),
+    transform,
+    positions: transformPositions(positions, transform),
+    bounds,
+    viewport,
+    zoomBounds: zoomBoundsFor(viewport.zoom),
+  };
 }

@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   deriveSpacing,
+  fillTransformFor,
   fillPositions,
   fillScales,
+  orientationFor,
   pointsBBox,
+  responsiveGeometryFor,
+  transformBBox,
   viewportFor,
   zoomBoundsFor,
 } from './layout';
@@ -18,6 +22,21 @@ describe('deriveSpacing', () => {
     expect(small.nodeSep).toBeLessThanOrEqual(110);
     expect(small.rankSep).toBeLessThanOrEqual(240);
     expect(large.rankSep).toBeGreaterThanOrEqual(50);
+  });
+
+  it('adapts cross-rank and rank spacing to viewport orientation', () => {
+    const landscape = deriveSpacing(1200, 600, 20);
+    const portrait = deriveSpacing(600, 1200, 20);
+    expect(landscape.nodeSep).toBeGreaterThan(portrait.nodeSep);
+    expect(landscape.rankSep).toBeLessThan(portrait.rankSep);
+  });
+});
+
+describe('orientationFor', () => {
+  it('classifies rectangular and square viewports', () => {
+    expect(orientationFor({ width: 1200, height: 700 })).toBe('landscape');
+    expect(orientationFor({ width: 700, height: 1200 })).toBe('portrait');
+    expect(orientationFor({ width: 700, height: 700 })).toBe('landscape');
   });
 });
 
@@ -93,11 +112,72 @@ describe('viewportFor', () => {
   });
 });
 
+describe('shared responsive geometry', () => {
+  it('uses the same transform for nodes and maturity-band rectangles', () => {
+    const positions = new Map([
+      ['elementary-node', { x: 100, y: 100 }],
+      ['graduate-node', { x: 300, y: 700 }],
+    ]);
+    // The vertical bounds represent all four configured bands, including any
+    // empty middle bands; horizontal bounds include node extents.
+    const sourceBounds = { x1: 0, y1: 0, x2: 400, y2: 800 };
+    const result = responsiveGeometryFor(
+      positions,
+      sourceBounds,
+      { width: 1400, height: 700 },
+      50,
+    );
+    const secondBand = transformBBox(
+      { x1: 0, y1: 200, x2: 400, y2: 400 },
+      result.transform,
+    );
+
+    expect(result.orientation).toBe('landscape');
+    expect(result.positions.get('elementary-node')!.y).toBeLessThan(secondBand.y1);
+    expect(result.positions.get('graduate-node')!.y).toBeGreaterThan(secondBand.y2);
+    expect(result.bounds.y1 * result.viewport.zoom + result.viewport.pan.y).toBeCloseTo(50);
+    expect(result.bounds.y2 * result.viewport.zoom + result.viewport.pan.y).toBeCloseTo(650);
+    expect(result.zoomBounds.min).toBeLessThan(result.viewport.zoom);
+    expect(result.zoomBounds.max).toBeGreaterThan(result.viewport.zoom);
+  });
+
+  it('returns portrait-aware spacing and geometry on resize', () => {
+    const positions = new Map([
+      ['a', { x: 0, y: 0 }],
+      ['b', { x: 800, y: 400 }],
+    ]);
+    const bounds = { x1: 0, y1: 0, x2: 800, y2: 400 };
+    const landscape = responsiveGeometryFor(positions, bounds, { width: 1200, height: 600 }, 40);
+    const portrait = responsiveGeometryFor(positions, bounds, { width: 600, height: 1200 }, 40);
+
+    expect(landscape.orientation).toBe('landscape');
+    expect(portrait.orientation).toBe('portrait');
+    expect(landscape.spacing.nodeSep).toBeGreaterThan(portrait.spacing.nodeSep);
+    expect(landscape.transform.sy).toBeLessThan(portrait.transform.sy);
+  });
+
+  it('exposes a reusable fill transform', () => {
+    const transform = fillTransformFor(
+      { x1: 0, y1: 0, x2: 100, y2: 100 },
+      { width: 1000, height: 500 },
+      50,
+    );
+    const transformed = transformBBox({ x1: 0, y1: 0, x2: 100, y2: 50 }, transform);
+    expect(transformed.x1).toBeLessThan(transformed.x2);
+    expect(transformed.y1).toBeLessThan(transformed.y2);
+  });
+});
+
 describe('zoomBoundsFor', () => {
   it('brackets the fit zoom', () => {
     const { min, max } = zoomBoundsFor(0.5);
     expect(min).toBeCloseTo(0.4);
     expect(max).toBeCloseTo(3);
+  });
+
+  it('falls back safely for invalid fit zooms', () => {
+    expect(zoomBoundsFor(Number.NaN)).toEqual({ min: 0.8, max: 6 });
+    expect(zoomBoundsFor(0)).toEqual({ min: 0.8, max: 6 });
   });
 });
 

@@ -132,7 +132,7 @@
     </div>
 
     <p class="hint" hidden={selected !== null}>
-      Click a node to explore it · double-click a group to open it
+      Click a node to explore it · drag to move nearby concepts · double-click a group to open it
     </p>
 
     <aside class="panel" class:open={selected !== null} aria-hidden={selected === null}>

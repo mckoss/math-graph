@@ -36,10 +36,15 @@ the site displays it under the title.
   (grades 9–12), `undergraduate`, and `graduate`; all configured horizontal
   bands are shown in data order, including empty bands. Groups use a
   deterministic representative level derived from descendants at any depth.
-- Client-side layout is responsive and space-filling, optimized separately for
-  landscape and portrait viewports with dynamic zoom. The dedicated layout
-  worktree remains the source for later spring dragging and persistence work;
-  those experiments are adapted intentionally, not copied wholesale.
+- Client-side layout is responsive and space-filling while retaining the
+  top-to-bottom maturity flow. It recomputes spacing, an aspect-aware affine
+  fill transform, fitted viewport, and zoom bounds after meaningful landscape
+  or portrait size changes. Every configured maturity band remains visible.
+- Dragging a node gives its visible two-hop neighborhood a subtle,
+  distance-decayed spring response and a brief settling motion after release.
+  Reduced-motion users receive direct node dragging without coupled animation.
+  Rearrangements are session-only at this checkpoint; local persistence by
+  node id is a separate reviewable checkpoint.
 - Historical metadata describes a development period or meaningful milestones,
   not necessarily a single moment of invention. Notes distinguish discovery,
   notation, formalization, publication, and generalization; attributions favor
@@ -55,10 +60,12 @@ the site displays it under the title.
    recursive groups, schema/runtime normalization, top-to-bottom colored
    maturity bands, unit validation, and minimal Playwright smoke coverage.
    Reviewed through `npm run dev` and accepted on 2026-08-29.
-2. **Responsive interaction layout:** landscape/portrait space filling, dynamic
-   zoom, weighted aggregate group edges, spring-coupled dragging, and locally
-   persisted positions resilient to added or removed nodes.
-3. **Study and history experience:** `to-learn` / `have-learned` bookmarks,
+2. **Responsive interaction layout (in progress):** landscape/portrait space
+   filling, dynamic zoom, and spring-coupled nearby-node dragging. Stop for a
+   user review through `npm run dev` before committing or publishing.
+3. **Persistence and study controls:** locally persisted positions resilient to
+   added or removed nodes, plus `to-learn` / `have-learned` bookmarks.
+4. **Graph meaning and history:** weighted aggregate group-edge styling,
    history UI, and reviewed multi-source provenance for historical claims.
 
 ## v0.1 — Walking skeleton (in progress)
@@ -116,8 +123,8 @@ the site displays it under the title.
       derivatives, integrals as their own expandable clusters)
 - [ ] Per-node "aha" blurbs: why the concept matters, not just what it is
 - [ ] Optional maturity filtering (show only through high school, etc.)
-- [ ] Weighted spring dragging: nearby nodes follow with distance-decayed
-      coupling and settle smoothly after release
+- [ ] Tune spring dragging after visual review: nearby nodes follow with
+      distance-decayed coupling and settle smoothly after release
 
 ## v0.5 — Polish
 
