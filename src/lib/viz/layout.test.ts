@@ -152,7 +152,7 @@ describe('shared responsive geometry', () => {
 
     expect(landscape.orientation).toBe('landscape');
     expect(portrait.orientation).toBe('portrait');
-    expect(landscape.spacing.nodeSep).toBeGreaterThan(portrait.spacing.nodeSep);
+    expect(landscape.spacing.rankSep).toBeLessThan(portrait.spacing.rankSep);
     expect(landscape.transform.sy).toBeLessThan(portrait.transform.sy);
   });
 

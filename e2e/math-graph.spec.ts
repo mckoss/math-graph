@@ -33,10 +33,17 @@ test('presents and operates the Math Graph knowledge explorer', async ({ page })
   await page.setViewportSize({ width: 600, height: 900 });
   await expect(visualization).toHaveAttribute('data-layout-orientation', 'portrait');
   await expect(bands).toHaveCount(4);
+  const portraitVizBounds = await visualization.boundingBox();
+  const portraitBandBounds = await bands.evaluateAll((items) =>
+    items.map((item) => item.getBoundingClientRect().toJSON()),
+  );
   for (const band of await bands.all()) {
     const bounds = await band.boundingBox();
     expect(bounds?.height).toBeGreaterThan(0);
   }
+  const occupiedBandHeight =
+    portraitBandBounds.at(-1)!.bottom - portraitBandBounds[0].top;
+  expect(occupiedBandHeight).toBeGreaterThan(portraitVizBounds!.height * 0.7);
 
   await page.setViewportSize({ width: 1200, height: 700 });
   await expect(visualization).toHaveAttribute('data-layout-orientation', 'landscape');
@@ -50,10 +57,12 @@ test('presents and operates the Math Graph knowledge explorer', async ({ page })
 
   await page.getByRole('button', { name: /Expand all/ }).click();
   await expect(status).toHaveText(/Showing 94 nodes and (163|166) connections/);
+  await expect(visualization).toHaveAttribute('data-layout-mode', 'bounded');
   expect(await status.textContent()).not.toBe(collapsedStatus);
 
   await page.getByRole('button', { name: /Collapse all/ }).click();
   await expect(status).toHaveText(collapsedStatus!);
+  await expect(visualization).toHaveAttribute('data-layout-mode', 'flow');
 
   await page.getByRole('button', { name: 'Zoom in' }).click();
   await page.getByRole('button', { name: 'Zoom out' }).click();

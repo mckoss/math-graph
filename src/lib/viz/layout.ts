@@ -59,8 +59,8 @@ export function deriveSpacing(width: number, height: number, nodeCount: number):
   const crossDim = width;
   const rankDim = height;
   const n = Math.max(1, nodeCount);
-  const nodeSep = clamp(Math.round(crossDim / Math.max(6, n * 0.75)), 14, 110);
-  const rankSep = clamp(Math.round(rankDim / Math.max(5, Math.sqrt(n) * 2)), 50, 240);
+  const nodeSep = clamp(Math.round(crossDim / Math.max(10, n)), 18, 52);
+  const rankSep = clamp(Math.round(rankDim / Math.max(4, Math.sqrt(n) * 1.6)), 72, 220);
   return { nodeSep, rankSep, edgeSep: 12 };
 }
 
@@ -74,7 +74,9 @@ export interface FillCaps {
 }
 
 export const DEFAULT_FILL_CAPS: FillCaps = {
-  maxStretch: 3,
+  maxStretch: 1.25,
+  // A modest compression keeps the composition vertical; the band-aware
+  // collision pass separates enlarged blocks after this center transform.
   minCompressX: 0.5,
   minCompressY: 0.5,
 };

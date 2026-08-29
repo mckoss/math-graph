@@ -40,10 +40,19 @@ the site displays it under the title.
   (grades 9–12), `undergraduate`, and `graduate`; all configured horizontal
   bands are shown in data order, including empty bands. Groups use a
   deterministic representative level derived from descendants at any depth.
-- Client-side layout is responsive and space-filling while retaining the
-  top-to-bottom maturity flow. It recomputes spacing, an aspect-aware affine
-  fill transform, fitted viewport, and zoom bounds after meaningful landscape
-  or portrait size changes. Every configured maturity band remains visible.
+- Client-side layout is responsive while prioritizing readability and a clear
+  top-to-bottom maturity flow over filling the full width. Nodes and labels
+  must remain comfortably legible at the initial fit, ranks should form a
+  narrower vertical composition, and empty maturity bands may be compacted to
+  avoid large unused areas while remaining visible.
+- Dense views such as **Expand all** wrap nodes into maturity-band rows whose
+  model width is capped to the current viewport. Extra content grows
+  vertically, opens aligned to the earliest visible maturity band, and may
+  require downward panning; the explicit Fit control remains the way to
+  request a whole-graph overview.
+- A node may move horizontally within the graph, but dragging and spring motion
+  must clamp its vertical center and full block bounds to its data-assigned
+  maturity band. Resizing and re-layout must preserve the same constraint.
 - Dragging a node gives its visible two-hop neighborhood a subtle,
   distance-decayed spring response and a brief settling motion after release.
   Reduced-motion users receive direct node dragging without coupled animation.
@@ -55,8 +64,10 @@ the site displays it under the title.
   honest cultural, co-discovery, and collaborative context over false
   precision. Historical claims need multiple citations and explicit provenance
   before the content is considered reviewed.
-- Before merge, the user reviews meaningful interface changes through
-  `npm run dev`; automated checks complement rather than replace that review.
+- The user reviews meaningful interface changes through `npm run dev`;
+  automated checks complement rather than replace that review. When requested,
+  a checkpoint may be consolidated into the primary local `main` worktree for
+  review, but it is not pushed or deployed until accepted.
 
 ## Delivery checkpoints
 
@@ -67,9 +78,14 @@ the site displays it under the title.
 2. **Responsive interaction layout (completed):** landscape/portrait space
    filling, dynamic zoom, and spring-coupled nearby-node dragging. Reviewed
    through `npm run dev` and accepted on 2026-08-29.
-3. **Persistence and study controls:** locally persisted positions resilient to
+3. **Layout readability and maturity constraints (in progress):** larger nodes
+   and labels, denser vertical composition, compact empty bands, and hard
+   maturity-band drag boundaries, including viewport-width wrapping for dense
+   views. Published as v0.2.3 with user authorization for continued visual
+   review through `npm run dev`.
+4. **Persistence and study controls:** locally persisted positions resilient to
    added or removed nodes, plus `to-learn` / `have-learned` bookmarks.
-4. **Graph meaning and history:** weighted aggregate group-edge styling,
+5. **Graph meaning and history:** weighted aggregate group-edge styling,
    history UI, and reviewed multi-source provenance for historical claims.
 
 ## v0.1 — Walking skeleton (in progress)

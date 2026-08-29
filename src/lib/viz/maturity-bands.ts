@@ -75,6 +75,154 @@ export interface MaturityBandLayout {
   bandRects: MaturityBandRect[];
 }
 
+/** Keep an entire node block within its assigned maturity band's y bounds. */
+export function clampPointToMaturityBand(
+  point: Point,
+  band: Pick<MaturityBandRect, 'y1' | 'y2'>,
+  nodeHeight: number,
+  inset = 6,
+): Point {
+  const halfHeight = Math.max(0, nodeHeight) / 2;
+  const minY = band.y1 + inset + halfHeight;
+  const maxY = band.y2 - inset - halfHeight;
+  return {
+    x: point.x,
+    y: minY <= maxY ? Math.max(minY, Math.min(maxY, point.y)) : (band.y1 + band.y2) / 2,
+  };
+}
+
+export interface MaturityBandNodeBox {
+  id: string;
+  band: number;
+  point: Point;
+  width: number;
+  height: number;
+}
+
+/**
+ * Separate enlarged node blocks within each band. Prefer vertical separation
+ * to reinforce progression; fall back to horizontal separation only when the
+ * band boundary prevents enough vertical movement.
+ */
+export function separateMaturityBandNodes(
+  nodes: readonly MaturityBandNodeBox[],
+  bands: readonly MaturityBandRect[],
+  gap = 10,
+): Map<string, Point> {
+  const positions = new Map(nodes.map((node) => [node.id, { ...node.point }]));
+  const byBand = new Map<number, MaturityBandNodeBox[]>();
+  for (const node of nodes) {
+    const list = byBand.get(node.band) ?? [];
+    list.push(node);
+    byBand.set(node.band, list);
+    const band = bands[node.band];
+    if (band) positions.set(node.id, clampPointToMaturityBand(node.point, band, node.height, 7));
+  }
+
+  for (const [bandIndex, members] of byBand) {
+    const band = bands[bandIndex];
+    if (!band) continue;
+    members.sort((a, b) => a.point.y - b.point.y || a.point.x - b.point.x || a.id.localeCompare(b.id));
+    for (let pass = 0; pass < 10; pass++) {
+      let changed = false;
+      for (let i = 0; i < members.length; i++) {
+        for (let j = i + 1; j < members.length; j++) {
+          const a = members[i];
+          const b = members[j];
+          const pa = positions.get(a.id)!;
+          const pb = positions.get(b.id)!;
+          const needX = (a.width + b.width) / 2 + gap;
+          const needY = (a.height + b.height) / 2 + gap;
+          if (Math.abs(pb.x - pa.x) >= needX || Math.abs(pb.y - pa.y) >= needY) continue;
+
+          const verticalOrder = pa.y === pb.y ? (pa.x <= pb.x ? -1 : 1) : pa.y < pb.y ? -1 : 1;
+          const verticalPush = (needY - Math.abs(pb.y - pa.y)) / 2;
+          const nextA = clampPointToMaturityBand(
+            { x: pa.x, y: pa.y + verticalOrder * verticalPush },
+            band,
+            a.height,
+            7,
+          );
+          const nextB = clampPointToMaturityBand(
+            { x: pb.x, y: pb.y - verticalOrder * verticalPush },
+            band,
+            b.height,
+            7,
+          );
+          positions.set(a.id, nextA);
+          positions.set(b.id, nextB);
+
+          if (Math.abs(nextB.y - nextA.y) < needY) {
+            const horizontalOrder = nextA.x <= nextB.x ? -1 : 1;
+            const horizontalPush = (needX - Math.abs(nextB.x - nextA.x)) / 2;
+            nextA.x += horizontalOrder * horizontalPush;
+            nextB.x -= horizontalOrder * horizontalPush;
+          }
+          changed = true;
+        }
+      }
+      if (!changed) break;
+    }
+  }
+  return positions;
+}
+
+/**
+ * Pack a dense graph into centered rows no wider than the current viewport.
+ * Ordering follows the incoming dagre positions, while maturity bands retain
+ * their independent vertical regions.
+ */
+export function packMaturityBandNodes(
+  nodes: readonly MaturityBandNodeBox[],
+  bands: readonly MaturityBandRect[],
+  maxWidth: number,
+  gap = 12,
+): Map<string, Point> {
+  const positions = new Map<string, Point>();
+  const byBand = new Map<number, MaturityBandNodeBox[]>();
+  const xs = nodes.map((node) => node.point.x);
+  const centerX = xs.length === 0 ? 0 : (Math.min(...xs) + Math.max(...xs)) / 2;
+
+  for (const node of nodes) {
+    const list = byBand.get(node.band) ?? [];
+    list.push(node);
+    byBand.set(node.band, list);
+  }
+
+  for (const [bandIndex, members] of byBand) {
+    const band = bands[bandIndex];
+    if (!band) continue;
+    members.sort((a, b) => a.point.y - b.point.y || a.point.x - b.point.x || a.id.localeCompare(b.id));
+    const cellWidth = Math.max(...members.map((node) => node.width)) + gap;
+    const cellHeight = Math.max(...members.map((node) => node.height)) + gap;
+    const columns = Math.max(1, Math.floor((Math.max(cellWidth, maxWidth) + gap) / cellWidth));
+    const rows = Math.ceil(members.length / columns);
+    const contentHeight = rows * cellHeight - gap;
+    const firstCenterY = (band.y1 + band.y2 - contentHeight) / 2 + (cellHeight - gap) / 2;
+
+    for (let row = 0; row < rows; row++) {
+      const rowMembers = members.slice(row * columns, (row + 1) * columns);
+      const rowWidth = rowMembers.length * cellWidth - gap;
+      const firstCenterX = centerX - rowWidth / 2 + (cellWidth - gap) / 2;
+      rowMembers.forEach((node, column) => {
+        positions.set(
+          node.id,
+          clampPointToMaturityBand(
+            {
+              x: firstCenterX + column * cellWidth,
+              y: firstCenterY + row * cellHeight,
+            },
+            band,
+            node.height,
+            7,
+          ),
+        );
+      });
+    }
+  }
+  return positions;
+}
+
 /**
  * Remap vertical positions into equal, top-to-bottom maturity bands. Every
  * configured band receives a rectangle even when it has no nodes. Within a
@@ -97,10 +245,18 @@ export function placeInMaturityBands(
     members[band].push({ id, point });
   }
 
-  const bandHeight = Math.max(1, totalHeight) / count;
+  // Empty levels stay visible as narrow colored bands without consuming the
+  // same space as levels containing nodes.
+  const weights = members.map((bandMembers) =>
+    bandMembers.length === 0 ? 0.35 : Math.sqrt(bandMembers.length),
+  );
+  const weightTotal = weights.reduce((sum, weight) => sum + weight, 0);
+  let cursor = top;
   const bandRects = members.map((bandMembers, band) => {
-    const y1 = top + band * bandHeight;
+    const bandHeight = Math.max(1, totalHeight) * (weights[band] / weightTotal);
+    const y1 = cursor;
     const y2 = y1 + bandHeight;
+    cursor = y2;
     const sourceYs = bandMembers.map(({ point }) => point.y);
     const minY = sourceYs.length > 0 ? Math.min(...sourceYs) : 0;
     const maxY = sourceYs.length > 0 ? Math.max(...sourceYs) : 0;

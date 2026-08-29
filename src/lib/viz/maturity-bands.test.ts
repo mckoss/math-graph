@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { ConceptGraph } from '../types';
-import { assignMaturityBands, placeInMaturityBands } from './maturity-bands';
+import {
+  assignMaturityBands,
+  clampPointToMaturityBand,
+  placeInMaturityBands,
+  packMaturityBandNodes,
+  separateMaturityBandNodes,
+} from './maturity-bands';
 
 const maturityLevels = [
   { id: 'graduate', label: 'Graduate', order: 4, color: '#444', tint: '#ddd' },
@@ -64,12 +70,15 @@ describe('placeInMaturityBands', () => {
       maturityLevels.length,
     );
 
-    expect(result.bandRects).toEqual([
-      { band: 0, y1: 40, y2: 240, count: 1 },
-      { band: 1, y1: 240, y2: 440, count: 0 },
-      { band: 2, y1: 440, y2: 640, count: 1 },
-      { band: 3, y1: 640, y2: 840, count: 0 },
-    ]);
+    expect(result.bandRects).toHaveLength(4);
+    expect(result.bandRects[0].y1).toBe(40);
+    expect(result.bandRects.at(-1)!.y2).toBeCloseTo(840);
+    expect(result.bandRects[1].y2 - result.bandRects[1].y1).toBeLessThan(
+      result.bandRects[0].y2 - result.bandRects[0].y1,
+    );
+    expect(result.bandRects[3].y2 - result.bandRects[3].y1).toBeLessThan(
+      result.bandRects[2].y2 - result.bandRects[2].y1,
+    );
     expect(result.positions.get('early')!.y).toBeLessThan(
       result.positions.get('college')!.y,
     );
@@ -98,6 +107,72 @@ describe('placeInMaturityBands', () => {
   it('uses the configured number of bands rather than a fixed count', () => {
     const result = placeInMaturityBands(new Map(), new Map(), 0, 300, 3);
     expect(result.bandRects).toHaveLength(3);
-    expect(result.bandRects.map(({ y1 }) => y1)).toEqual([0, 100, 200]);
+    expect(result.bandRects[0].y1).toBeCloseTo(0);
+    expect(result.bandRects[1].y1).toBeCloseTo(100);
+    expect(result.bandRects[2].y1).toBeCloseTo(200);
+  });
+});
+
+describe('clampPointToMaturityBand', () => {
+  const band = { y1: 100, y2: 220 };
+
+  it('keeps the full node block inside its band while preserving x', () => {
+    expect(clampPointToMaturityBand({ x: 42, y: 20 }, band, 40, 5)).toEqual({
+      x: 42,
+      y: 125,
+    });
+    expect(clampPointToMaturityBand({ x: 42, y: 300 }, band, 40, 5)).toEqual({
+      x: 42,
+      y: 195,
+    });
+    expect(clampPointToMaturityBand({ x: 42, y: 160 }, band, 40, 5)).toEqual({
+      x: 42,
+      y: 160,
+    });
+  });
+
+  it('centers a block when the band is too short to contain it', () => {
+    expect(clampPointToMaturityBand({ x: 8, y: 999 }, band, 200, 5)).toEqual({
+      x: 8,
+      y: 160,
+    });
+  });
+});
+
+describe('separateMaturityBandNodes', () => {
+  it('separates overlapping blocks while keeping them inside their shared band', () => {
+    const bands = [{ band: 0, y1: 100, y2: 300, count: 2 }];
+    const result = separateMaturityBandNodes(
+      [
+        { id: 'left', band: 0, point: { x: 100, y: 190 }, width: 140, height: 60 },
+        { id: 'right', band: 0, point: { x: 190, y: 200 }, width: 140, height: 60 },
+      ],
+      bands,
+      10,
+    );
+    const left = result.get('left')!;
+    const right = result.get('right')!;
+
+    expect(Math.abs(right.y - left.y)).toBeGreaterThanOrEqual(70);
+    expect(left.y).toBeGreaterThanOrEqual(137);
+    expect(right.y).toBeLessThanOrEqual(263);
+  });
+});
+
+describe('packMaturityBandNodes', () => {
+  it('wraps dense nodes into rows bounded by the requested width', () => {
+    const bands = [{ band: 0, y1: 0, y2: 300, count: 5 }];
+    const nodes = Array.from({ length: 5 }, (_, index) => ({
+      id: `node-${index}`,
+      band: 0,
+      point: { x: index * 200, y: index },
+      width: 100,
+      height: 40,
+    }));
+    const result = packMaturityBandNodes(nodes, bands, 340, 10);
+    const points = [...result.values()];
+
+    expect(Math.max(...points.map((point) => point.x)) - Math.min(...points.map((point) => point.x))).toBeLessThanOrEqual(220);
+    expect(new Set(points.map((point) => point.y)).size).toBe(2);
   });
 });
