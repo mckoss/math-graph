@@ -61,6 +61,8 @@
   let cy: cytoscape.Core | undefined;
   let previousExpanded = new Set<string>();
   let compoundGroupCount = $state(0);
+  let infoButtons = $state<Array<{ id: string; label: string; left: number; top: number }>>([]);
+  let infoButtonFrame = 0;
 
   const FIT_PADDING = 36;
   const LAYOUT_MS = 480;
@@ -219,6 +221,31 @@
     compoundGroupCount = c.nodes(':parent').length;
 
     runLayout(oldPos.size === 0, focusId);
+    scheduleInfoButtons();
+  }
+
+  /** Keep accessible DOM detail buttons pinned inside canvas-rendered nodes. */
+  function updateInfoButtons(): void {
+    infoButtonFrame = 0;
+    const c = cy;
+    if (!c) {
+      infoButtons = [];
+      return;
+    }
+    infoButtons = c.nodes().map((node: cytoscape.NodeSingular) => {
+      const box = node.renderedBoundingBox({ includeLabels: false, includeOverlays: false });
+      return {
+        id: node.id(),
+        label: String(node.data('label')).split('\n')[0],
+        left: box.x2 - 12,
+        top: box.y1 + 12,
+      };
+    });
+  }
+
+  function scheduleInfoButtons(): void {
+    if (infoButtonFrame !== 0) return;
+    infoButtonFrame = requestAnimationFrame(updateInfoButtons);
   }
 
   // ---- Maturity-band background ------------------------------------------
@@ -770,9 +797,6 @@
     });
     cy = c;
 
-    c.on('tap', 'node', (e) => {
-      onSelect(e.target.id());
-    });
     c.on('tap', (e) => {
       if (e.target === c) onSelect(null);
     });
@@ -797,6 +821,7 @@
       container.style.cursor = '';
     });
     c.on('pan zoom resize', updateBandStripes);
+    c.on('render', scheduleInfoButtons);
 
     c.on('grab', 'node', (e) => {
       if (prefersReducedMotion) return;
@@ -840,6 +865,9 @@
       resizeObserver.disconnect();
       if (resizeTimer !== undefined) clearTimeout(resizeTimer);
       cancelSprings();
+      if (infoButtonFrame !== 0) cancelAnimationFrame(infoButtonFrame);
+      infoButtonFrame = 0;
+      infoButtons = [];
       c.destroy();
       cy = undefined;
     };
@@ -886,6 +914,22 @@
     {/each}
   </div>
   <div class="graph" aria-label="Mathematics dependency graph" bind:this={container}></div>
+  <div class="node-info-layer">
+    {#each infoButtons as button (button.id)}
+      <button
+        class="node-info"
+        type="button"
+        aria-label={`More information about ${button.label}`}
+        title={`More information about ${button.label}`}
+        style:left={`${button.left}px`}
+        style:top={`${button.top}px`}
+        onclick={(event) => {
+          event.stopPropagation();
+          onSelect(button.id);
+        }}
+      >?</button>
+    {/each}
+  </div>
 </div>
 
 <style>
@@ -896,6 +940,35 @@
   .graph {
     position: absolute;
     inset: 0;
+  }
+  .node-info-layer {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .node-info {
+    position: absolute;
+    z-index: 2;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    transform: translate(-50%, -50%);
+    border: 1px solid rgba(45, 42, 36, 0.34);
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.92);
+    color: #514b41;
+    font: 700 13px/18px Inter, sans-serif;
+    cursor: pointer;
+    pointer-events: auto;
+    box-shadow: 0 1px 3px rgba(36, 31, 24, 0.16);
+  }
+  .node-info:hover,
+  .node-info:focus-visible {
+    border-color: #2f6fc2;
+    color: #2f6fc2;
+    outline: 2px solid rgba(47, 111, 194, 0.28);
+    outline-offset: 1px;
   }
   .bands {
     position: absolute;

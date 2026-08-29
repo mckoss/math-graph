@@ -66,6 +66,11 @@ the site displays it under the title.
 - An expanded group container may span multiple maturity bands to contain its
   children. Its child concepts remain constrained to their own data-assigned
   bands; the collapsed group alone uses its derived representative band.
+- A normal block click is reserved for direct graph interaction and never
+  opens the information panel. Every visible block has a distinct `?` button
+  inside its upper-right corner; activating that control opens the panel for
+  the block. The affordance is a real keyboard-accessible DOM button even
+  though the graph itself is canvas-rendered.
 - Dragging a node gives its visible two-hop neighborhood a subtle,
   distance-decayed spring response and a brief settling motion after release.
   Reduced-motion users receive direct node dragging without coupled animation.

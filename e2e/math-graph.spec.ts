@@ -51,6 +51,22 @@ test('presents and operates the Math Graph knowledge explorer', async ({ page })
   const canvas = page.locator('.graph canvas').first();
   await expect(canvas).toBeVisible();
 
+  const panel = page.locator('.panel');
+  const numbersInfo = page.getByRole('button', {
+    name: 'More information about Numbers & Counting',
+  });
+  await expect(numbersInfo).toBeVisible();
+  const infoBounds = await numbersInfo.boundingBox();
+  expect(infoBounds).not.toBeNull();
+  await page.mouse.click(infoBounds!.x - 24, infoBounds!.y + 18);
+  await expect(panel).toHaveAttribute('aria-hidden', 'true');
+
+  await numbersInfo.click();
+  await expect(panel).toHaveAttribute('aria-hidden', 'false');
+  await expect(panel.getByRole('heading', { name: 'Numbers & Counting' })).toBeVisible();
+  await page.getByRole('button', { name: 'Close panel' }).click();
+  await expect(panel).toHaveAttribute('aria-hidden', 'true');
+
   const status = page.getByRole('status');
   const collapsedStatus = await status.textContent();
   expect(collapsedStatus).toMatch(/Showing \d+ nodes and \d+ connections/);
