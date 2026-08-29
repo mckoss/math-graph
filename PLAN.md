@@ -9,16 +9,17 @@ the site displays it under the title.
 - [x] Scaffold Vite + Svelte 5 + TypeScript project
 - [x] Shared data model (`src/lib/types.ts`: ConceptGraph / nodes / edges)
 - [x] GitHub Actions workflow: test → build → deploy to Pages
-- [ ] YAML knowledge base (`src/data/curriculum.yaml`) + validating parser
+- [x] YAML knowledge base (`src/data/curriculum.yaml`) + validating parser
       (duplicate ids, dangling refs, cycle detection) with line-numbered errors
-- [ ] Initial curriculum: ~10 categories, 60–100 concepts, elementary →
+- [x] Initial curriculum: 12 categories, 94 concepts, elementary →
       2nd-year undergraduate, every node linked to Wikipedia
-- [ ] Interactive graph: Cytoscape + dagre, zoom/pan, DAG left-to-right flow
-- [ ] Multilevel view: categories collapse/expand in place (edge aggregation)
-- [ ] Info panel: description, stage badge, prerequisite/dependent chips,
+- [x] Interactive graph: Cytoscape + dagre, zoom/pan, DAG left-to-right flow
+- [x] Multilevel view: categories collapse/expand in place (edge aggregation)
+- [x] Info panel: description, stage badge, prerequisite/dependent chips,
       Wikipedia link
-- [ ] Version number displayed under site title
-- [ ] Public GitHub repo, Pages enabled, first deploy live
+- [x] Version number displayed under site title
+- [x] Public GitHub repo, Pages enabled, first deploy live
+      (https://mckoss.com/math-graph/)
 
 ## v0.2 — Content & correctness
 

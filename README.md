@@ -5,7 +5,7 @@ a zoomable, explorable directed graph running from counting and the natural
 numbers up through the standard high-school curriculum and the first years of
 undergraduate mathematics.
 
-**Live site:** https://mckoss.github.io/math-graph/
+**Live site:** https://mckoss.com/math-graph/
 
 Every arrow points from a foundational concept to one that builds on it — you
 can't really understand the target of an arrow until you understand its source.
