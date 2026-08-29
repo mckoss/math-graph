@@ -1,7 +1,6 @@
 /** Pure helpers for arranging graph nodes into configured maturity bands. */
 
 import type { ConceptGraph, GraphNode } from '../types';
-import { childrenByParent, descendantsOf, nodesById } from './graph-model';
 import { orderedMaturityLevels } from './colors';
 
 export interface Point {
@@ -11,56 +10,19 @@ export interface Point {
 
 /**
  * Assign every graph node to a maturity band. Concepts use their explicit
- * level. Groups use the median level of their classified descendants so
- * their placement remains stable while collapsed.
+ * level. Groups also have one explicit level because cross-zone groups are
+ * rejected by the knowledge-base contract.
  */
 export function assignMaturityBands(graph: ConceptGraph): Map<string, number> {
-  const byId = nodesById(graph);
-  const children = childrenByParent(graph);
-  const assignments = new Map<string, number>();
   const maturityIndex = new Map(
     orderedMaturityLevels(graph.maturityLevels).map((level, index) => [level.id, index]),
   );
-
-  const resolve = (node: GraphNode, seen: Set<string>): number => {
-    const cached = assignments.get(node.id);
-    if (cached !== undefined) return cached;
-
-    let band =
-      node.maturityLevel === undefined ? undefined : maturityIndex.get(node.maturityLevel);
-
-    if (band === undefined && node.isGroup) {
-      const descendantBands = descendantsOf(children, node.id)
-        .map((id) => byId.get(id))
-        .filter(
-          (descendant): descendant is GraphNode =>
-            descendant !== undefined &&
-            !descendant.isGroup &&
-            descendant.maturityLevel !== undefined,
-        )
-        .map((descendant) => maturityIndex.get(descendant.maturityLevel!) ?? 0)
-        .sort((a, b) => a - b);
-
-      if (descendantBands.length > 0) {
-        band = descendantBands[Math.floor((descendantBands.length - 1) / 2)];
-      }
-    }
-
-    if (band === undefined && node.parent !== undefined && !seen.has(node.parent)) {
-      const parent = byId.get(node.parent);
-      if (parent !== undefined) {
-        seen.add(node.id);
-        band = resolve(parent, seen);
-      }
-    }
-
-    band ??= 0;
-    assignments.set(node.id, band);
-    return band;
-  };
-
-  for (const node of graph.nodes) resolve(node, new Set());
-  return assignments;
+  return new Map(
+    graph.nodes.map((node: GraphNode) => [
+      node.id,
+      maturityIndex.get(node.maturityLevel ?? '') ?? 0,
+    ]),
+  );
 }
 
 export interface MaturityBandRect {
@@ -73,6 +35,126 @@ export interface MaturityBandRect {
 export interface MaturityBandLayout {
   positions: Map<string, Point>;
   bandRects: MaturityBandRect[];
+}
+
+/** Grow bands to requested minimum heights while preserving order and counts. */
+export function expandMaturityBandRects(
+  bands: readonly MaturityBandRect[],
+  minimumHeights: ReadonlyMap<number, number>,
+): MaturityBandRect[] {
+  if (bands.length === 0) return [];
+  let cursor = bands[0].y1;
+  return bands.map((band) => {
+    const currentHeight = Math.max(0, band.y2 - band.y1);
+    const requestedHeight = Math.max(0, minimumHeights.get(band.band) ?? 0);
+    const y1 = cursor;
+    const y2 = y1 + Math.max(currentHeight, requestedHeight);
+    cursor = y2;
+    return { ...band, y1, y2 };
+  });
+}
+
+export interface ExpandedBandForBlock {
+  bands: MaturityBandRect[];
+  /** Model-space y shift to apply to members of each band. */
+  shifts: Map<number, number>;
+}
+
+/** Expand one band around a dragged block and shift adjacent bands as needed. */
+export function expandBandForBlock(
+  bands: readonly MaturityBandRect[],
+  bandIndex: number,
+  point: Point,
+  blockHeight: number,
+  inset = 7,
+): ExpandedBandForBlock {
+  const output = bands.map((band) => ({ ...band }));
+  const shifts = new Map<number, number>();
+  const band = output[bandIndex];
+  if (band === undefined) return { bands: output, shifts };
+  const halfHeight = Math.max(0, blockHeight) / 2;
+  const requiredTop = point.y - halfHeight - inset;
+  const requiredBottom = point.y + halfHeight + inset;
+
+  if (requiredTop < band.y1) {
+    const delta = band.y1 - requiredTop;
+    band.y1 -= delta;
+    for (let index = 0; index < bandIndex; index++) {
+      output[index].y1 -= delta;
+      output[index].y2 -= delta;
+      shifts.set(index, -delta);
+    }
+  }
+  if (requiredBottom > band.y2) {
+    const delta = requiredBottom - band.y2;
+    band.y2 += delta;
+    for (let index = bandIndex + 1; index < output.length; index++) {
+      output[index].y1 += delta;
+      output[index].y2 += delta;
+      shifts.set(index, delta);
+    }
+  }
+  return { bands: output, shifts };
+}
+
+export interface FittedMaturityBands {
+  bands: MaturityBandRect[];
+  positions: Map<string, Point>;
+}
+
+/** Compact contiguous bands to the minimum height containing their blocks. */
+export function fitMaturityBandsToNodes(
+  nodes: readonly MaturityBandNodeBox[],
+  bands: readonly MaturityBandRect[],
+  minimumHeight = 42,
+  inset = 7,
+  anchoredNodeId?: string,
+): FittedMaturityBands {
+  if (bands.length === 0) return { bands: [], positions: new Map() };
+  const positions = new Map(nodes.map((node) => [node.id, { ...node.point }]));
+  let cursor = bands[0].y1;
+  const fitted = bands.map((band) => {
+    const members = nodes.filter((node) => node.band === band.band);
+    if (members.length === 0) {
+      const y1 = cursor;
+      const y2 = y1 + minimumHeight;
+      cursor = y2;
+      return { ...band, y1, y2, count: 0 };
+    }
+    const minTop = Math.min(...members.map((node) => node.point.y - node.height / 2));
+    const maxBottom = Math.max(...members.map((node) => node.point.y + node.height / 2));
+    const height = Math.max(minimumHeight, maxBottom - minTop + 2 * inset);
+    const shift = cursor + inset - minTop;
+    for (const node of members) {
+      positions.set(node.id, { x: node.point.x, y: node.point.y + shift });
+    }
+    const y1 = cursor;
+    const y2 = y1 + height;
+    cursor = y2;
+    return { ...band, y1, y2, count: members.length };
+  });
+  // Treat member coordinates as local to their zone. Stacking the derived
+  // zone heights gives graph coordinates; a drag anchor then translates the
+  // entire stack so the actively dragged block remains under the pointer.
+  const anchor = anchoredNodeId === undefined
+    ? undefined
+    : nodes.find((node) => node.id === anchoredNodeId);
+  const fittedAnchor = anchoredNodeId === undefined
+    ? undefined
+    : positions.get(anchoredNodeId);
+  if (anchor !== undefined && fittedAnchor !== undefined) {
+    const delta = anchor.point.y - fittedAnchor.y;
+    if (Math.abs(delta) > 1e-9) {
+      for (const band of fitted) {
+        band.y1 += delta;
+        band.y2 += delta;
+      }
+      positions.forEach((point, id) => {
+        positions.set(id, { x: point.x, y: point.y + delta });
+      });
+    }
+  }
+  return { bands: fitted, positions };
 }
 
 /** Keep an entire node block within its assigned maturity band's y bounds. */
@@ -99,6 +181,95 @@ export interface MaturityBandNodeBox {
   height: number;
 }
 
+export function nodeBoxesOverlap(
+  a: MaturityBandNodeBox,
+  aPoint: Point,
+  b: MaturityBandNodeBox,
+  bPoint: Point,
+  gap = 0,
+): boolean {
+  return (
+    Math.abs(aPoint.x - bPoint.x) < (a.width + b.width) / 2 + gap &&
+    Math.abs(aPoint.y - bPoint.y) < (a.height + b.height) / 2 + gap
+  );
+}
+
+/** Keep a directly manipulated block pinned and move colliding peers aside. */
+export function separateMaturityPeersFromPinned(
+  pinned: MaturityBandNodeBox,
+  peers: readonly MaturityBandNodeBox[],
+  gap = 10,
+): Map<string, Point> {
+  const items = [pinned, ...peers.filter((peer) => peer.id !== pinned.id)];
+  const positions = new Map(items.map((item) => [item.id, { ...item.point }]));
+  const maxPasses = Math.max(8, items.length * items.length * 2);
+  for (let pass = 0; pass < maxPasses; pass++) {
+    let changed = false;
+    for (let left = 0; left < items.length; left++) {
+      for (let right = left + 1; right < items.length; right++) {
+        const fixed = items[left];
+        const moving = items[right];
+        const fixedPoint = positions.get(fixed.id)!;
+        const movingPoint = positions.get(moving.id)!;
+        if (!nodeBoxesOverlap(fixed, fixedPoint, moving, movingPoint, gap)) continue;
+        const direction = movingPoint.x === fixedPoint.x
+          ? (moving.id < fixed.id ? -1 : 1)
+          : Math.sign(movingPoint.x - fixedPoint.x);
+        const requiredDx = (fixed.width + moving.width) / 2 + gap -
+          Math.abs(movingPoint.x - fixedPoint.x);
+        positions.set(moving.id, {
+          x: movingPoint.x + direction * requiredDx,
+          y: movingPoint.y,
+        });
+        changed = true;
+      }
+    }
+    if (!changed) break;
+  }
+  positions.set(pinned.id, { ...pinned.point });
+  return positions;
+}
+
+/** Move one block to the nearest band-safe position that does not overlap peers. */
+export function constrainPointAgainstMaturityBandNodes(
+  moving: MaturityBandNodeBox,
+  desired: Point,
+  others: readonly MaturityBandNodeBox[],
+  band: MaturityBandRect,
+  gap = 10,
+): Point {
+  let point = clampPointToMaturityBand(desired, band, moving.height, 7);
+  const peers = others.filter((other) => other.band === moving.band && other.id !== moving.id);
+  const maxPasses = Math.max(4, peers.length * 2);
+
+  for (let pass = 0; pass < maxPasses; pass++) {
+    let collision = false;
+    for (const other of peers) {
+      if (!nodeBoxesOverlap(moving, point, other, other.point, gap)) continue;
+      collision = true;
+      const dx = point.x - other.point.x;
+      const dy = point.y - other.point.y;
+      const pushX = (moving.width + other.width) / 2 + gap - Math.abs(dx);
+      const pushY = (moving.height + other.height) / 2 + gap - Math.abs(dy);
+      const yDirection = dy === 0 ? (moving.id < other.id ? -1 : 1) : Math.sign(dy);
+      const yCandidate = clampPointToMaturityBand(
+        { x: point.x, y: point.y + yDirection * pushY },
+        band,
+        moving.height,
+        7,
+      );
+      if (!nodeBoxesOverlap(moving, yCandidate, other, other.point, gap)) {
+        point = yCandidate;
+      } else {
+        const xDirection = dx === 0 ? (moving.id < other.id ? -1 : 1) : Math.sign(dx);
+        point = { x: point.x + xDirection * pushX, y: point.y };
+      }
+    }
+    if (!collision) break;
+  }
+  return point;
+}
+
 /**
  * Separate enlarged node blocks within each band. Prefer vertical separation
  * to reinforce progression; fall back to horizontal separation only when the
@@ -123,7 +294,7 @@ export function separateMaturityBandNodes(
     const band = bands[bandIndex];
     if (!band) continue;
     members.sort((a, b) => a.point.y - b.point.y || a.point.x - b.point.x || a.id.localeCompare(b.id));
-    for (let pass = 0; pass < 10; pass++) {
+    for (let pass = 0; pass < Math.max(20, members.length * members.length * 2); pass++) {
       let changed = false;
       for (let i = 0; i < members.length; i++) {
         for (let j = i + 1; j < members.length; j++) {
@@ -234,6 +405,7 @@ export function placeInMaturityBands(
   top: number,
   totalHeight: number,
   bandCount: number,
+  requestedWeights?: readonly number[],
 ): MaturityBandLayout {
   const output = new Map<string, Point>();
   const count = Math.max(1, bandCount);
@@ -247,9 +419,12 @@ export function placeInMaturityBands(
 
   // Empty levels stay visible as narrow colored bands without consuming the
   // same space as levels containing nodes.
-  const weights = members.map((bandMembers) =>
-    bandMembers.length === 0 ? 0.35 : Math.sqrt(bandMembers.length),
-  );
+  const weights = members.map((bandMembers, band) => {
+    const requested = requestedWeights?.[band];
+    return requested !== undefined && Number.isFinite(requested) && requested > 0
+      ? requested
+      : bandMembers.length === 0 ? 0.35 : Math.sqrt(bandMembers.length);
+  });
   const weightTotal = weights.reduce((sum, weight) => sum + weight, 0);
   let cursor = top;
   const bandRects = members.map((bandMembers, band) => {

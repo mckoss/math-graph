@@ -42,11 +42,12 @@
     },
     "group": {
       "type": "object",
-      "required": ["id", "label"],
+      "required": ["id", "label", "maturityLevel"],
       "additionalProperties": false,
       "properties": {
         "id": { "$ref": "#/definitions/id" },
         "label": { "type": "string", "minLength": 1 },
+        "maturityLevel": { "$ref": "#/definitions/id" },
         "wikipedia": { "type": "string" },
         "description": { "type": "string" },
         "groups": { "type": "array", "items": { "$ref": "#/definitions/group" } }

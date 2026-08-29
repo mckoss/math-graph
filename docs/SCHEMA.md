@@ -10,8 +10,9 @@ invariants.
 
 The YAML document owns the content taxonomy as well as the content itself.
 Maturity ids, labels, ordering, descriptions, and colors are data—not constants
-in the TypeScript application. Groups may nest to any depth, while concepts
-remain a flat collection that references group ids.
+in the TypeScript application. Groups may nest to any depth, but each group and
+all of its children occupy exactly one maturity zone. Concepts remain a flat
+collection that references group ids.
 
 ## Top level
 
@@ -67,26 +68,30 @@ allowing the taxonomy to grow beyond a fixed depth.
 
 ```yaml
 groups:
-  - id: number-systems
-    label: Number Systems
+  - id: elementary-number-systems
+    label: Elementary Number Systems
+    maturityLevel: elementary
     wikipedia: Number_system
     description: "Successive enlargements of the idea of number."
     groups:
-      - id: higher-number-systems
-        label: Higher Number Systems
+      - id: signed-number-systems
+        label: Signed Number Systems
+        maturityLevel: elementary
 ```
 
 | Key           | Required | Value |
 | ------------- | -------- | ----- |
 | `id`          | yes      | globally unique kebab-case id |
 | `label`       | yes      | display label |
+| `maturityLevel` | yes    | id of the one maturity zone containing the entire group |
 | `wikipedia`   | no       | English Wikipedia article title, after `/wiki/` |
 | `description` | no       | one- or two-sentence plain-language description |
 | `groups`      | no       | recursively nested subgroup records |
 
-The loader flattens groups into graph nodes with parent links. Collapsed group
-placement uses the median maturity of descendant concepts, so it remains
-deterministic at any nesting depth.
+The loader flattens groups into graph nodes with parent links and rejects any
+concept or nested group whose maturity level differs from its immediate parent.
+Subjects that span levels use sibling groups, such as `elementary-algebra` and
+`high-school-algebra`, instead of a cross-zone container.
 
 ## Concepts
 
@@ -96,7 +101,7 @@ Concepts form one flat list:
 concepts:
   - id: natural-numbers
     label: Natural Numbers
-    group: number-systems
+    group: elementary-number-systems
     maturityLevel: elementary
     wikipedia: Natural_number
     description: "The counting numbers 1, 2, 3, ..."
@@ -124,7 +129,7 @@ necessarily identify a single inventor.
 ```yaml
 - id: derivatives
   label: Derivatives
-  group: calculus
+  group: high-school-calculus
   maturityLevel: high-school
   history:
     from: 1665
@@ -179,6 +184,8 @@ unit suite enforces relationships that require a global view of the data:
   concepts;
 - maturity `order` values are unique;
 - every concept's `group` and `maturityLevel` references exist;
+- every group has one explicit maturity level, and every concept or subgroup
+  matches its immediate group's level;
 - dependency endpoints exist and are concepts, not groups;
 - dependencies contain no self-links or duplicate expanded pairs;
 - the concept dependency graph is acyclic;

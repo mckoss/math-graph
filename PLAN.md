@@ -38,8 +38,11 @@ the site displays it under the title.
 - Maturity ids, labels, order, descriptions, colors, and tints come entirely
   from YAML. The current data defines `elementary` (grades 1–8), `high-school`
   (grades 9–12), `undergraduate`, and `graduate`; all configured horizontal
-  bands are shown in data order, including empty bands. Groups use a
-  deterministic representative level derived from descendants at any depth.
+  bands are shown in data order, including empty bands. Every group has one
+  explicit data-defined maturity level and must reside wholly in that zone;
+  concepts and nested groups must match their immediate parent's level. A
+  subject spanning levels is represented by sibling groups such as Elementary
+  Algebra and High School Algebra, never by one cross-zone container.
 - Client-side layout is responsive while prioritizing readability and a clear
   top-to-bottom maturity flow over filling the full width. Nodes and labels
   must remain comfortably legible at the initial fit, ranks should form a
@@ -50,14 +53,71 @@ the site displays it under the title.
   vertically, opens aligned to the earliest visible maturity band, and may
   require downward panning; the explicit Fit control remains the way to
   request a whole-graph overview.
-- A node may move horizontally within the graph, but dragging and spring motion
-  must clamp its vertical center and full block bounds to its data-assigned
-  maturity band. Resizing and re-layout must preserve the same constraint.
+- Focused expansion preserves the group's existing horizontal graph anchor;
+  its container grows vertically only as required by its children's maturity
+  bands. The initial camera zooms to make the internal concepts readable. If
+  the expanded container would overlap surrounding root blocks, the group
+  remains anchored and only those surrounding blocks move horizontally by the
+  minimum distance needed to clear it.
+- Focus is never a viewport lock. Zoom limits remain derived from the entire
+  visible graph even while a group is expanded, so users can immediately zoom
+  and pan back to surrounding blocks or use Fit to restore global context.
+- A node remains assigned to its data-defined maturity zone, but vertical drag
+  is not clamped at the current zone edge. Block positions are maintained in a
+  coordinate system relative to their zone. Each zone's graph-space height is
+  always derived from the envelope of its visible member blocks plus padding;
+  ordered zone origins are obtained by stacking those heights. Dragging updates
+  the local block coordinate, recomputes the minimum contiguous zone extents,
+  and shifts neighboring zone origins with their members while preserving the
+  dragged block under the pointer. Empty zones retain a visible minimum height.
+- Full block rectangles, including the configured gap, must never overlap.
+  Automatic layout, direct dragging, and spring-following motion all resolve
+  collisions without violating maturity-band bounds or dense-view width caps.
+- Expanding a group preserves the parent hierarchy: the group remains visible
+  as a containing group and its direct children appear inside it. Nested
+  subgroups remain nested groups rather than promoting descendants to top-level
+  graph nodes. This is a visualization state, not a separate schema type.
+- An expanded group container remains wholly inside its one maturity zone.
+  Maturity zones expand vertically whenever visible nested content needs more
+  room, shifting neighboring zones and their blocks together rather than
+  compressing, crossing, or overlapping content.
+- A normal block click is reserved for direct graph interaction and never
+  opens the information panel. Every visible block has a distinct `?` button
+  inside its upper-right corner; activating that control opens the panel for
+  the block. The affordance is a real keyboard-accessible DOM button even
+  though the graph itself is canvas-rendered.
+- Users can self-evaluate each concept as `aware`, `familiar`, or `mastered`.
+  Applying a level to a group recursively applies it to every descendant leaf
+  concept; group details show the shared level or a mixed state. These ratings
+  are user-owned state stored in browser local storage, not canonical YAML.
+- Every concept will carry a schema-validated positive `familiarStudyHours`
+  estimate in canonical YAML: the approximate study time a median learner
+  needs to reach `familiar` understanding of that concept itself, excluding
+  prerequisite study. The value is an intentionally rough planning estimate,
+  not a promise or a personalized prediction.
+- “Time to familiarity” for a target concept is the sum of
+  `familiarStudyHours` across the unique unmet concepts in the target's full
+  prerequisite closure, including the target. Traversal stops at the learner's
+  current frontier: a concept rated `familiar` or `mastered` and all knowledge
+  behind it contribute zero, while `aware` does not receive a time discount.
+  Shared prerequisites are counted once. For a group target, compute the union
+  for all descendant leaf concepts. The UI must identify the estimate as
+  approximate and show both total time and the remaining concept set so the
+  number is explainable.
 - Dragging a node gives its visible two-hop neighborhood a subtle,
   distance-decayed spring response and a brief settling motion after release.
   Reduced-motion users receive direct node dragging without coupled animation.
-  Rearrangements are session-only at this checkpoint; local persistence by
-  node id is a separate reviewable checkpoint.
+  Child rearrangements are retained by node id when their group is closed and
+  reopened. Saved positions are relative to the group anchor and normalized
+  within maturity bands so they survive responsive resizing; they remain
+  session-only until the separate browser-persistence checkpoint.
+- Layout coordinates form an affine transform tree. A block stores coordinates
+  relative to its immediate parent; rendered graph coordinates are obtained by
+  composing the transforms along root → maturity zone → group → nested group →
+  block. Dragging inverse-maps the accepted graph point into that parent-local
+  coordinate system. Because groups cannot cross zones, each block has one
+  unambiguous transform path. Cytoscape compound bounds are presentation output,
+  not authoritative parent coordinates.
 - Historical metadata describes a development period or meaningful milestones,
   not necessarily a single moment of invention. Notes distinguish discovery,
   notation, formalization, publication, and generalization; attributions favor
@@ -79,12 +139,22 @@ the site displays it under the title.
    filling, dynamic zoom, and spring-coupled nearby-node dragging. Reviewed
    through `npm run dev` and accepted on 2026-08-29.
 3. **Layout readability and maturity constraints (in progress):** larger nodes
-   and labels, denser vertical composition, compact empty bands, and hard
-   maturity-band drag boundaries, including viewport-width wrapping for dense
-   views. Published as v0.2.3 with user authorization for continued visual
-   review through `npm run dev`.
+   and labels, denser vertical composition, content-derived maturity zones,
+   parent-local coordinates, freely expanding zone-aware dragging, and
+   viewport-width wrapping for dense views. Published as v0.2.3 with user
+   authorization for continued visual review through `npm run dev`.
+   The v0.2.4 follow-up makes non-overlap a hard constraint for layout and
+   interaction.
+   The v0.2.5 checkpoint adds explicit in-block `?` controls for opening
+   details while reserving ordinary clicks for graph interaction.
+   The v0.2.6 review checkpoint adds anchored non-overlapping group expansion,
+   dynamically content-derived maturity zones, single-zone groups, composed
+   parent-local transforms, session close/reopen layout retention, and locally
+   persisted aware/familiar/mastered self-evaluation.
 4. **Persistence and study controls:** locally persisted positions resilient to
-   added or removed nodes, plus `to-learn` / `have-learned` bookmarks.
+   added or removed nodes, `to-learn` / `have-learned` bookmarks, schema-backed
+   median time-to-familiarity estimates, and prerequisite-frontier calculations
+   from the user's locally stored knowledge ratings.
 5. **Graph meaning and history:** weighted aggregate group-edge styling,
    history UI, and reviewed multi-source provenance for historical claims.
 

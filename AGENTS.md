@@ -42,6 +42,17 @@
   passes, following the applicable branch and pull-request workflow. Do not
   batch multiple completed features into one commit or leave verified work
   unpublished.
+- A development turn is complete only after every requirement in the user's
+  prompt has been met. Progress updates, iteration, and clarifying questions
+  may happen before completion without publishing partial work.
+- Do not treat a development turn as accepted or publish it until the user
+  explicitly says `push`. Iteration, review, questions, and locally green
+  checkpoints may occur before that confirmation without committing or
+  pushing partial work.
+- When the user says `push`, first ensure every requirement in the prompt is
+  complete and run the full required test suite against the final working
+  tree. If it is green, commit and push; if it is not green, do not push and
+  report the failures.
 - Treat side conversations as discussion and read-only investigation by
   default because they share the main thread's workspace and Git state.
 - A side conversation may modify files only when the user explicitly requests

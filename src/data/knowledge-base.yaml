@@ -48,6 +48,7 @@ groups:
   # ---------------------------------------------------------------------------
   - id: numbers
     label: "Numbers & Counting"
+    maturityLevel: elementary
     wikipedia: Number
     description: "The most basic ideas of quantity: counting things, naming numbers, and writing them down."
   # ---------------------------------------------------------------------------
@@ -55,79 +56,140 @@ groups:
   # ---------------------------------------------------------------------------
   - id: arithmetic
     label: "Arithmetic"
+    maturityLevel: elementary
     wikipedia: Arithmetic
     description: "Calculating with numbers: the four basic operations and their extensions."
   # ---------------------------------------------------------------------------
   # Number Systems
   # ---------------------------------------------------------------------------
-  - id: number-systems
-    label: "Number Systems"
+  - id: elementary-number-systems
+    label: "Elementary Number Systems"
+    maturityLevel: elementary
     wikipedia: Number_system
-    description: "Successive enlargements of the idea of number: integers, rationals, reals, complex numbers and beyond."
+    description: "Foundational enlargements of counting numbers to integers, rational numbers, irrational numbers, and primes."
+  - id: high-school-number-systems
+    label: "High School Number Systems"
+    maturityLevel: high-school
+    wikipedia: Number_system
+    description: "The real and complex number systems studied in high school mathematics."
+  - id: undergraduate-number-systems
+    label: "Undergraduate Number Systems"
+    maturityLevel: undergraduate
+    wikipedia: Number_system
+    description: "Further enlargements of number systems studied in undergraduate mathematics."
   # ---------------------------------------------------------------------------
   # Algebra
   # ---------------------------------------------------------------------------
-  - id: algebra
-    label: "Algebra"
+  - id: elementary-algebra
+    label: "Elementary Algebra"
+    maturityLevel: elementary
     wikipedia: Algebra
-    description: "Working with symbols that stand for numbers: expressions, equations, and how to solve them."
+    description: "Early work with symbols, expressions, linear equations, and inequalities."
+  - id: high-school-algebra
+    label: "High School Algebra"
+    maturityLevel: high-school
+    wikipedia: Algebra
+    description: "Polynomial, quadratic, logarithmic, and simultaneous equations studied in high school."
   # ---------------------------------------------------------------------------
   # Geometry
   # ---------------------------------------------------------------------------
-  - id: geometry
-    label: "Geometry"
+  - id: elementary-geometry
+    label: "Elementary Geometry"
+    maturityLevel: elementary
     wikipedia: Geometry
-    description: "The mathematics of shape, size, and position, from measuring figures to coordinates and proof."
+    description: "The foundational mathematics of shape, size, measurement, congruence, and similarity."
+  - id: high-school-geometry
+    label: "High School Geometry"
+    maturityLevel: high-school
+    wikipedia: Geometry
+    description: "Coordinate methods for studying geometric shape and position."
   # ---------------------------------------------------------------------------
   # Trigonometry
   # ---------------------------------------------------------------------------
   - id: trigonometry
     label: "Trigonometry"
+    maturityLevel: high-school
     wikipedia: Trigonometry
     description: "The study of angles and the periodic functions that arise from triangles and circles."
   # ---------------------------------------------------------------------------
   # Functions & Graphs
   # ---------------------------------------------------------------------------
-  - id: functions-and-graphs
-    label: "Functions & Graphs"
+  - id: elementary-functions-and-graphs
+    label: "Elementary Functions & Graphs"
+    maturityLevel: elementary
     wikipedia: Function_(mathematics)
-    description: "The idea of a function as a rule assigning outputs to inputs, and the pictures functions make."
+    description: "Introductory functions, graphs, and slope."
+  - id: high-school-functions-and-graphs
+    label: "High School Functions & Graphs"
+    maturityLevel: high-school
+    wikipedia: Function_(mathematics)
+    description: "Composition, inverses, exponential functions, and sequences."
   # ---------------------------------------------------------------------------
   # Calculus
   # ---------------------------------------------------------------------------
-  - id: calculus
-    label: "Calculus"
+  - id: high-school-calculus
+    label: "High School Calculus"
+    maturityLevel: high-school
     wikipedia: Calculus
-    description: "The mathematics of change and accumulation, built on the idea of a limit."
+    description: "Limits, derivatives, and integrals in a first calculus course."
+  - id: undergraduate-calculus
+    label: "Undergraduate Calculus"
+    maturityLevel: undergraduate
+    wikipedia: Calculus
+    description: "Advanced integration, series, multivariable calculus, differential equations, and analysis."
   # ---------------------------------------------------------------------------
   # Linear Algebra
   # ---------------------------------------------------------------------------
-  - id: linear-algebra
-    label: "Linear Algebra"
+  - id: high-school-linear-algebra
+    label: "High School Linear Algebra"
+    maturityLevel: high-school
     wikipedia: Linear_algebra
-    description: "Vectors, matrices, and linear transformations: the mathematics of flat, proportional structure in any dimension."
+    description: "Introductory vectors, dot products, and matrices."
+  - id: undergraduate-linear-algebra
+    label: "Undergraduate Linear Algebra"
+    maturityLevel: undergraduate
+    wikipedia: Linear_algebra
+    description: "Vector spaces, linear transformations, determinants, independence, and eigenvalues."
   # ---------------------------------------------------------------------------
   # Probability & Statistics
   # ---------------------------------------------------------------------------
-  - id: probability-statistics
-    label: "Probability & Statistics"
+  - id: elementary-probability-statistics
+    label: "Elementary Probability & Statistics"
+    maturityLevel: elementary
     wikipedia: Probability_and_statistics
-    description: "Reasoning about uncertainty and learning from data."
+    description: "First ideas of chance and descriptive statistics."
+  - id: high-school-probability-statistics
+    label: "High School Probability & Statistics"
+    maturityLevel: high-school
+    wikipedia: Probability_and_statistics
+    description: "Conditional probability, random variables, distributions, expectation, and the normal distribution."
+  - id: undergraduate-probability-statistics
+    label: "Undergraduate Probability & Statistics"
+    maturityLevel: undergraduate
+    wikipedia: Probability_and_statistics
+    description: "Bayesian reasoning, limit theorems, inference, and regression."
   # ---------------------------------------------------------------------------
   # Discrete Mathematics
   # ---------------------------------------------------------------------------
-  - id: discrete-math
-    label: "Discrete Mathematics"
+  - id: high-school-discrete-math
+    label: "High School Discrete Mathematics"
+    maturityLevel: high-school
     wikipedia: Discrete_mathematics
-    description: "Mathematics of distinct, separate objects: logic, sets, counting, and networks - the foundation of computer science."
+    description: "Sets, logic, proof, induction, and combinatorics."
+  - id: undergraduate-discrete-math
+    label: "Undergraduate Discrete Mathematics"
+    maturityLevel: undergraduate
+    wikipedia: Discrete_mathematics
+    description: "Graph theory and modular arithmetic in undergraduate discrete mathematics."
   # ---------------------------------------------------------------------------
   # Abstract Algebra
   # ---------------------------------------------------------------------------
   - id: abstract-algebra
     label: "Abstract Algebra"
+    maturityLevel: undergraduate
     wikipedia: Abstract_algebra
     description: "Studying algebraic structure itself: axioms for systems where addition-like and multiplication-like operations live."
-# Edges connect CONCEPTS only. Category-to-category links are never recorded
+# Edges connect CONCEPTS only. Group-to-group links are never recorded
 # here: the visualization derives them by aggregating concept edges that
 # cross category boundaries (see docs/SCHEMA.md, "Design principle").
 
@@ -318,7 +380,7 @@ concepts:
           wikipedia: Babylonian_mathematics
 
   - id: integers
-    group: number-systems
+    group: elementary-number-systems
     label: "Integers"
     wikipedia: Integer
     maturityLevel: elementary
@@ -334,7 +396,7 @@ concepts:
         - name: "Brahmagupta"
           wikipedia: Brahmagupta
   - id: rational-numbers
-    group: number-systems
+    group: elementary-number-systems
     label: "Rational Numbers"
     wikipedia: Rational_number
     maturityLevel: elementary
@@ -344,7 +406,7 @@ concepts:
       circa: true
       note: "Fractions are ancient; the rationals as a number system were formalized in the 19th century."
   - id: irrational-numbers
-    group: number-systems
+    group: elementary-number-systems
     label: "Irrational Numbers"
     wikipedia: Irrational_number
     maturityLevel: elementary
@@ -357,7 +419,7 @@ concepts:
         - name: "Hippasus"
           wikipedia: Hippasus
   - id: real-numbers
-    group: number-systems
+    group: high-school-number-systems
     label: "Real Numbers"
     wikipedia: Real_number
     maturityLevel: high-school
@@ -372,7 +434,7 @@ concepts:
         - name: "Georg Cantor"
           wikipedia: Georg_Cantor
   - id: complex-numbers
-    group: number-systems
+    group: high-school-number-systems
     label: "Complex Numbers"
     wikipedia: Complex_number
     maturityLevel: high-school
@@ -386,7 +448,7 @@ concepts:
         - name: "Rafael Bombelli"
           wikipedia: Rafael_Bombelli
   - id: quaternions
-    group: number-systems
+    group: undergraduate-number-systems
     label: "Quaternions"
     wikipedia: Quaternion
     maturityLevel: undergraduate
@@ -398,7 +460,7 @@ concepts:
         - name: "William Rowan Hamilton"
           wikipedia: William_Rowan_Hamilton
   - id: prime-numbers
-    group: number-systems
+    group: elementary-number-systems
     label: "Prime Numbers"
     wikipedia: Prime_number
     maturityLevel: elementary
@@ -412,7 +474,7 @@ concepts:
           wikipedia: Euclid
 
   - id: variables
-    group: algebra
+    group: elementary-algebra
     label: "Variables"
     wikipedia: Variable_(mathematics)
     maturityLevel: elementary
@@ -428,7 +490,7 @@ concepts:
         - name: "François Viète"
           wikipedia: François_Viète
   - id: algebraic-expressions
-    group: algebra
+    group: elementary-algebra
     label: "Algebraic Expressions"
     wikipedia: Expression_(mathematics)
     maturityLevel: elementary
@@ -441,7 +503,7 @@ concepts:
         - name: "al-Khwarizmi"
           wikipedia: Al-Khwarizmi
   - id: linear-equations
-    group: algebra
+    group: elementary-algebra
     label: "Linear Equations"
     wikipedia: Linear_equation
     maturityLevel: elementary
@@ -456,7 +518,7 @@ concepts:
         - name: "Egyptian mathematicians"
           wikipedia: Ancient_Egyptian_mathematics
   - id: inequalities
-    group: algebra
+    group: elementary-algebra
     label: "Inequalities"
     wikipedia: Inequality_(mathematics)
     maturityLevel: elementary
@@ -468,7 +530,7 @@ concepts:
         - name: "Thomas Harriot"
           wikipedia: Thomas_Harriot
   - id: systems-of-equations
-    group: algebra
+    group: high-school-algebra
     label: "Systems of Linear Equations"
     wikipedia: System_of_linear_equations
     maturityLevel: high-school
@@ -482,7 +544,7 @@ concepts:
         - name: "Chinese mathematicians"
           wikipedia: Chinese_mathematics
   - id: polynomials
-    group: algebra
+    group: high-school-algebra
     label: "Polynomials"
     wikipedia: Polynomial
     maturityLevel: high-school
@@ -496,7 +558,7 @@ concepts:
         - name: "Gerolamo Cardano"
           wikipedia: Gerolamo_Cardano
   - id: factoring
-    group: algebra
+    group: high-school-algebra
     label: "Factoring"
     wikipedia: Factorization
     maturityLevel: high-school
@@ -509,7 +571,7 @@ concepts:
         - name: "Euclid"
           wikipedia: Euclid
   - id: quadratic-equations
-    group: algebra
+    group: high-school-algebra
     label: "Quadratic Equations"
     wikipedia: Quadratic_equation
     maturityLevel: high-school
@@ -525,7 +587,7 @@ concepts:
         - name: "al-Khwarizmi"
           wikipedia: Al-Khwarizmi
   - id: logarithms
-    group: algebra
+    group: high-school-algebra
     label: "Logarithms"
     wikipedia: Logarithm
     maturityLevel: high-school
@@ -540,7 +602,7 @@ concepts:
           wikipedia: Henry_Briggs_(mathematician)
 
   - id: angles
-    group: geometry
+    group: elementary-geometry
     label: "Angles"
     wikipedia: Angle
     maturityLevel: elementary
@@ -553,7 +615,7 @@ concepts:
         - name: "Babylonian mathematicians"
           wikipedia: Babylonian_mathematics
   - id: triangles
-    group: geometry
+    group: elementary-geometry
     label: "Triangles"
     wikipedia: Triangle
     maturityLevel: elementary
@@ -569,7 +631,7 @@ concepts:
         - name: "Euclid"
           wikipedia: Euclid
   - id: circles
-    group: geometry
+    group: elementary-geometry
     label: "Circles"
     wikipedia: Circle
     maturityLevel: elementary
@@ -579,7 +641,7 @@ concepts:
       circa: true
       note: "Circle areas are approximated in Babylonian and Egyptian texts."
   - id: area
-    group: geometry
+    group: elementary-geometry
     label: "Area"
     wikipedia: Area
     maturityLevel: elementary
@@ -592,7 +654,7 @@ concepts:
         - name: "Egyptian mathematicians"
           wikipedia: Ancient_Egyptian_mathematics
   - id: volume
-    group: geometry
+    group: elementary-geometry
     label: "Volume"
     wikipedia: Volume
     maturityLevel: elementary
@@ -605,7 +667,7 @@ concepts:
         - name: "Egyptian mathematicians"
           wikipedia: Ancient_Egyptian_mathematics
   - id: congruence
-    group: geometry
+    group: elementary-geometry
     label: "Congruence"
     wikipedia: Congruence_(geometry)
     maturityLevel: elementary
@@ -618,7 +680,7 @@ concepts:
         - name: "Euclid"
           wikipedia: Euclid
   - id: similarity
-    group: geometry
+    group: elementary-geometry
     label: "Similarity"
     wikipedia: Similarity_(geometry)
     maturityLevel: elementary
@@ -632,7 +694,7 @@ concepts:
         - name: "Thales of Miletus"
           wikipedia: Thales_of_Miletus
   - id: pythagorean-theorem
-    group: geometry
+    group: elementary-geometry
     label: "Pythagorean Theorem"
     wikipedia: Pythagorean_theorem
     maturityLevel: elementary
@@ -648,7 +710,7 @@ concepts:
         - name: "Pythagoras"
           wikipedia: Pythagoras
   - id: coordinate-geometry
-    group: geometry
+    group: high-school-geometry
     label: "Coordinate Geometry"
     wikipedia: Analytic_geometry
     maturityLevel: high-school
@@ -748,7 +810,7 @@ concepts:
           wikipedia: Jacob_Bernoulli
 
   - id: functions
-    group: functions-and-graphs
+    group: elementary-functions-and-graphs
     label: "Functions"
     wikipedia: Function_(mathematics)
     maturityLevel: elementary
@@ -765,7 +827,7 @@ concepts:
         - name: "Peter Gustav Lejeune Dirichlet"
           wikipedia: Peter_Gustav_Lejeune_Dirichlet
   - id: graphing
-    group: functions-and-graphs
+    group: elementary-functions-and-graphs
     label: "Graphs of Functions"
     wikipedia: Graph_of_a_function
     maturityLevel: elementary
@@ -781,7 +843,7 @@ concepts:
         - name: "René Descartes"
           wikipedia: René_Descartes
   - id: slope
-    group: functions-and-graphs
+    group: elementary-functions-and-graphs
     label: "Slope"
     wikipedia: Slope
     maturityLevel: elementary
@@ -791,19 +853,19 @@ concepts:
       circa: true
       note: "A by-product of describing lines by equations."
   - id: function-composition
-    group: functions-and-graphs
+    group: high-school-functions-and-graphs
     label: "Function Composition"
     wikipedia: Function_composition
     maturityLevel: high-school
     description: "Applying one function to the result of another, chaining rules together."
   - id: inverse-functions
-    group: functions-and-graphs
+    group: high-school-functions-and-graphs
     label: "Inverse Functions"
     wikipedia: Inverse_function
     maturityLevel: high-school
     description: "A function that undoes another, swapping the roles of inputs and outputs."
   - id: exponential-functions
-    group: functions-and-graphs
+    group: high-school-functions-and-graphs
     label: "Exponential Functions"
     wikipedia: Exponential_function
     maturityLevel: high-school
@@ -815,7 +877,7 @@ concepts:
         - name: "Leonhard Euler"
           wikipedia: Leonhard_Euler
   - id: sequences
-    group: functions-and-graphs
+    group: high-school-functions-and-graphs
     label: "Sequences"
     wikipedia: Sequence
     maturityLevel: high-school
@@ -826,7 +888,7 @@ concepts:
       note: "Arithmetic and geometric progressions appear in Babylonian and Egyptian texts."
 
   - id: limits
-    group: calculus
+    group: high-school-calculus
     label: "Limits"
     wikipedia: Limit_(mathematics)
     maturityLevel: high-school
@@ -843,7 +905,7 @@ concepts:
         - name: "Karl Weierstrass"
           wikipedia: Karl_Weierstrass
   - id: continuity
-    group: calculus
+    group: high-school-calculus
     label: "Continuity"
     wikipedia: Continuous_function
     maturityLevel: high-school
@@ -858,7 +920,7 @@ concepts:
         - name: "Augustin-Louis Cauchy"
           wikipedia: Augustin-Louis_Cauchy
   - id: derivatives
-    group: calculus
+    group: high-school-calculus
     label: "Derivatives"
     wikipedia: Derivative
     maturityLevel: high-school
@@ -873,7 +935,7 @@ concepts:
         - name: "Gottfried Wilhelm Leibniz"
           wikipedia: Gottfried_Wilhelm_Leibniz
   - id: chain-rule
-    group: calculus
+    group: high-school-calculus
     label: "Chain Rule"
     wikipedia: Chain_rule
     maturityLevel: high-school
@@ -885,7 +947,7 @@ concepts:
         - name: "Gottfried Wilhelm Leibniz"
           wikipedia: Gottfried_Wilhelm_Leibniz
   - id: integrals
-    group: calculus
+    group: high-school-calculus
     label: "Integrals"
     wikipedia: Integral
     maturityLevel: high-school
@@ -900,7 +962,7 @@ concepts:
         - name: "Gottfried Wilhelm Leibniz"
           wikipedia: Gottfried_Wilhelm_Leibniz
   - id: fundamental-theorem-of-calculus
-    group: calculus
+    group: high-school-calculus
     label: "Fundamental Theorem of Calculus"
     wikipedia: Fundamental_theorem_of_calculus
     maturityLevel: high-school
@@ -915,7 +977,7 @@ concepts:
         - name: "Gottfried Wilhelm Leibniz"
           wikipedia: Gottfried_Wilhelm_Leibniz
   - id: integration-techniques
-    group: calculus
+    group: undergraduate-calculus
     label: "Integration Techniques"
     wikipedia: Integration_by_parts
     maturityLevel: undergraduate
@@ -929,7 +991,7 @@ concepts:
         - name: "Brook Taylor"
           wikipedia: Brook_Taylor
   - id: infinite-series
-    group: calculus
+    group: undergraduate-calculus
     label: "Infinite Series"
     wikipedia: Series_(mathematics)
     maturityLevel: undergraduate
@@ -945,7 +1007,7 @@ concepts:
         - name: "Augustin-Louis Cauchy"
           wikipedia: Augustin-Louis_Cauchy
   - id: taylor-series
-    group: calculus
+    group: undergraduate-calculus
     label: "Taylor Series"
     wikipedia: Taylor_series
     maturityLevel: undergraduate
@@ -957,7 +1019,7 @@ concepts:
         - name: "Brook Taylor"
           wikipedia: Brook_Taylor
   - id: partial-derivatives
-    group: calculus
+    group: undergraduate-calculus
     label: "Partial Derivatives"
     wikipedia: Partial_derivative
     maturityLevel: undergraduate
@@ -971,7 +1033,7 @@ concepts:
         - name: "Alexis Clairaut"
           wikipedia: Alexis_Clairaut
   - id: differential-equations
-    group: calculus
+    group: undergraduate-calculus
     label: "Differential Equations"
     wikipedia: Differential_equation
     maturityLevel: undergraduate
@@ -987,7 +1049,7 @@ concepts:
         - name: "Gottfried Wilhelm Leibniz"
           wikipedia: Gottfried_Wilhelm_Leibniz
   - id: real-analysis
-    group: calculus
+    group: undergraduate-calculus
     label: "Real Analysis"
     wikipedia: Real_analysis
     maturityLevel: undergraduate
@@ -1003,7 +1065,7 @@ concepts:
           wikipedia: Karl_Weierstrass
 
   - id: vectors
-    group: linear-algebra
+    group: high-school-linear-algebra
     label: "Vectors"
     wikipedia: Euclidean_vector
     maturityLevel: high-school
@@ -1019,7 +1081,7 @@ concepts:
         - name: "Josiah Willard Gibbs"
           wikipedia: Josiah_Willard_Gibbs
   - id: dot-product
-    group: linear-algebra
+    group: high-school-linear-algebra
     label: "Dot Product"
     wikipedia: Dot_product
     maturityLevel: high-school
@@ -1034,7 +1096,7 @@ concepts:
         - name: "Oliver Heaviside"
           wikipedia: Oliver_Heaviside
   - id: matrices
-    group: linear-algebra
+    group: high-school-linear-algebra
     label: "Matrices"
     wikipedia: Matrix_(mathematics)
     maturityLevel: high-school
@@ -1049,7 +1111,7 @@ concepts:
         - name: "Arthur Cayley"
           wikipedia: Arthur_Cayley
   - id: determinants
-    group: linear-algebra
+    group: undergraduate-linear-algebra
     label: "Determinants"
     wikipedia: Determinant
     maturityLevel: undergraduate
@@ -1064,7 +1126,7 @@ concepts:
         - name: "Gottfried Wilhelm Leibniz"
           wikipedia: Gottfried_Wilhelm_Leibniz
   - id: linear-independence
-    group: linear-algebra
+    group: undergraduate-linear-algebra
     label: "Linear Independence"
     wikipedia: Linear_independence
     maturityLevel: undergraduate
@@ -1077,7 +1139,7 @@ concepts:
         - name: "Hermann Grassmann"
           wikipedia: Hermann_Grassmann
   - id: vector-spaces
-    group: linear-algebra
+    group: undergraduate-linear-algebra
     label: "Vector Spaces"
     wikipedia: Vector_space
     maturityLevel: undergraduate
@@ -1089,7 +1151,7 @@ concepts:
         - name: "Giuseppe Peano"
           wikipedia: Giuseppe_Peano
   - id: linear-transformations
-    group: linear-algebra
+    group: undergraduate-linear-algebra
     label: "Linear Transformations"
     wikipedia: Linear_map
     maturityLevel: undergraduate
@@ -1102,7 +1164,7 @@ concepts:
         - name: "Arthur Cayley"
           wikipedia: Arthur_Cayley
   - id: eigenvalues
-    group: linear-algebra
+    group: undergraduate-linear-algebra
     label: "Eigenvalues & Eigenvectors"
     wikipedia: Eigenvalues_and_eigenvectors
     maturityLevel: undergraduate
@@ -1116,7 +1178,7 @@ concepts:
           wikipedia: Augustin-Louis_Cauchy
 
   - id: probability
-    group: probability-statistics
+    group: elementary-probability-statistics
     label: "Probability"
     wikipedia: Probability
     maturityLevel: elementary
@@ -1130,7 +1192,7 @@ concepts:
         - name: "Pierre de Fermat"
           wikipedia: Pierre_de_Fermat
   - id: conditional-probability
-    group: probability-statistics
+    group: high-school-probability-statistics
     label: "Conditional Probability"
     wikipedia: Conditional_probability
     maturityLevel: high-school
@@ -1143,7 +1205,7 @@ concepts:
         - name: "Abraham de Moivre"
           wikipedia: Abraham_de_Moivre
   - id: bayes-theorem
-    group: probability-statistics
+    group: undergraduate-probability-statistics
     label: "Bayes' Theorem"
     wikipedia: Bayes'_theorem
     maturityLevel: undergraduate
@@ -1158,7 +1220,7 @@ concepts:
         - name: "Pierre-Simon Laplace"
           wikipedia: Pierre-Simon_Laplace
   - id: descriptive-statistics
-    group: probability-statistics
+    group: elementary-probability-statistics
     label: "Descriptive Statistics"
     wikipedia: Descriptive_statistics
     maturityLevel: elementary
@@ -1170,7 +1232,7 @@ concepts:
         - name: "John Graunt"
           wikipedia: John_Graunt
   - id: random-variables
-    group: probability-statistics
+    group: high-school-probability-statistics
     label: "Random Variables"
     wikipedia: Random_variable
     maturityLevel: high-school
@@ -1182,7 +1244,7 @@ concepts:
         - name: "Andrey Kolmogorov"
           wikipedia: Andrey_Kolmogorov
   - id: probability-distributions
-    group: probability-statistics
+    group: high-school-probability-statistics
     label: "Probability Distributions"
     wikipedia: Probability_distribution
     maturityLevel: high-school
@@ -1197,7 +1259,7 @@ concepts:
         - name: "Pierre-Simon Laplace"
           wikipedia: Pierre-Simon_Laplace
   - id: expected-value
-    group: probability-statistics
+    group: high-school-probability-statistics
     label: "Expected Value"
     wikipedia: Expected_value
     maturityLevel: high-school
@@ -1212,7 +1274,7 @@ concepts:
         - name: "Christiaan Huygens"
           wikipedia: Christiaan_Huygens
   - id: normal-distribution
-    group: probability-statistics
+    group: high-school-probability-statistics
     label: "The Normal Distribution"
     wikipedia: Normal_distribution
     maturityLevel: high-school
@@ -1228,7 +1290,7 @@ concepts:
         - name: "Pierre-Simon Laplace"
           wikipedia: Pierre-Simon_Laplace
   - id: central-limit-theorem
-    group: probability-statistics
+    group: undergraduate-probability-statistics
     label: "Central Limit Theorem"
     wikipedia: Central_limit_theorem
     maturityLevel: undergraduate
@@ -1245,7 +1307,7 @@ concepts:
         - name: "Aleksandr Lyapunov"
           wikipedia: Aleksandr_Lyapunov
   - id: hypothesis-testing
-    group: probability-statistics
+    group: undergraduate-probability-statistics
     label: "Hypothesis Testing"
     wikipedia: Statistical_hypothesis_testing
     maturityLevel: undergraduate
@@ -1262,7 +1324,7 @@ concepts:
         - name: "Egon Pearson"
           wikipedia: Egon_Pearson
   - id: regression
-    group: probability-statistics
+    group: undergraduate-probability-statistics
     label: "Regression"
     wikipedia: Regression_analysis
     maturityLevel: undergraduate
@@ -1280,7 +1342,7 @@ concepts:
           wikipedia: Francis_Galton
 
   - id: sets
-    group: discrete-math
+    group: high-school-discrete-math
     label: "Sets"
     wikipedia: Set_(mathematics)
     maturityLevel: high-school
@@ -1292,7 +1354,7 @@ concepts:
         - name: "Georg Cantor"
           wikipedia: Georg_Cantor
   - id: logic
-    group: discrete-math
+    group: high-school-discrete-math
     label: "Propositional Logic"
     wikipedia: Propositional_calculus
     maturityLevel: high-school
@@ -1310,7 +1372,7 @@ concepts:
         - name: "Gottlob Frege"
           wikipedia: Gottlob_Frege
   - id: proofs
-    group: discrete-math
+    group: high-school-discrete-math
     label: "Mathematical Proof"
     wikipedia: Mathematical_proof
     maturityLevel: high-school
@@ -1326,7 +1388,7 @@ concepts:
         - name: "Euclid"
           wikipedia: Euclid
   - id: induction
-    group: discrete-math
+    group: high-school-discrete-math
     label: "Mathematical Induction"
     wikipedia: Mathematical_induction
     maturityLevel: high-school
@@ -1342,7 +1404,7 @@ concepts:
         - name: "Blaise Pascal"
           wikipedia: Blaise_Pascal
   - id: combinatorics
-    group: discrete-math
+    group: high-school-discrete-math
     label: "Combinatorics"
     wikipedia: Combinatorics
     maturityLevel: high-school
@@ -1358,7 +1420,7 @@ concepts:
         - name: "Blaise Pascal"
           wikipedia: Blaise_Pascal
   - id: graph-theory
-    group: discrete-math
+    group: undergraduate-discrete-math
     label: "Graph Theory"
     wikipedia: Graph_theory
     maturityLevel: undergraduate
@@ -1370,7 +1432,7 @@ concepts:
         - name: "Leonhard Euler"
           wikipedia: Leonhard_Euler
   - id: modular-arithmetic
-    group: discrete-math
+    group: undergraduate-discrete-math
     label: "Modular Arithmetic"
     wikipedia: Modular_arithmetic
     maturityLevel: undergraduate
