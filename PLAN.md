@@ -24,7 +24,8 @@ the site displays it under the title.
   browser-level smoke coverage of the built application.
 - Local development and GitHub Actions use the same exact current LTS Node.js
   release, pinned in `.nvmrc` and `package.json`; the deployment workflow reads
-  `.nvmrc` rather than maintaining a separate version value.
+  `.nvmrc` rather than maintaining a separate version value. Workflow actions
+  also use Node.js 24-native major releases rather than deprecated runtimes.
 - Every dependency points from prerequisite to dependent. Stored edges connect
   concepts only; group edges are display aggregates derived from underlying
   concept relationships. A later visualization checkpoint will weight them by
