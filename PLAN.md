@@ -22,6 +22,9 @@ the site displays it under the title.
   and semantic validity.
 - Schema and graph invariants are covered by unit tests; Playwright provides
   browser-level smoke coverage of the built application.
+- Local development and GitHub Actions use the same exact current LTS Node.js
+  release, pinned in `.nvmrc` and `package.json`; the deployment workflow reads
+  `.nvmrc` rather than maintaining a separate version value.
 - Every dependency points from prerequisite to dependent. Stored edges connect
   concepts only; group edges are display aggregates derived from underlying
   concept relationships. A later visualization checkpoint will weight them by
