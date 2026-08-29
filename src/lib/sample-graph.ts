@@ -1,11 +1,12 @@
 /**
  * A small hand-built ConceptGraph used by tests and dev experiments.
- * The app loads its full graph from src/data/knowledge-base.yaml.
+ * The app discovers its full graphs from src/data/graphs/*.yaml.
  */
 
 import type { ConceptGraph } from './types';
 
 export const sampleGraph: ConceptGraph = {
+  metadata: { id: 'sample-math', topic: 'Sample Math' },
   maturityLevels: [
     { id: 'elementary', label: 'Elementary', order: 1, color: '#d9920f', tint: '#fbeccd' },
     { id: 'high-school', label: 'High School', order: 2, color: '#d95f38', tint: '#fadfd2' },

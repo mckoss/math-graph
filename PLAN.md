@@ -1,21 +1,33 @@
-# Development Plan — Math Graph
+# Development Plan — Knowledge Graph
 
-Living checklist toward **v1.0**. Update this file as work lands; bump the
-`version` in `package.json` ([semver](https://semver.org/)) at each milestone —
-the site displays it under the title.
+Living checklist toward **v1.0**. Update this file as work lands. The
+`version` in `package.json` ([semver](https://semver.org/)) is bumped when an
+accepted checkpoint merges to `main`; review builds append their feature
+branch name to the current main version. The site displays the resulting build
+version under the title.
 
 ## Design decisions
 
-- The product and browser title is exactly **Math Graph**. It is an interactive
-  mathematics **knowledge explorer**, not a prescribed course sequence.
-- `src/data/knowledge-base.yaml` is the canonical knowledge base. Generated
-  JSON or other artifacts must be derived reproducibly and must never become a
-  competing source of truth.
+- The product and browser title is exactly **Knowledge Graph**. It is a
+  domain-independent knowledge explorer, not a prescribed course sequence.
+  The selected graph's topic is the subtitle; the bundled default is **Math**.
+- Every YAML file under `src/data/graphs/` is an independent canonical
+  knowledge graph. The application discovers the collection automatically and
+  provides a domain selector, so adding Physics, Chemistry, Computer Science,
+  or another domain requires data and validation work but no registry edit in
+  application code. Math and Physics are the initial bundled examples.
+- Each graph defines required metadata with a stable kebab-case `id`, display
+  `topic`, optional description, and at most one collection-wide `default`.
+  Dataset ids namespace all browser-owned ratings and future layout state so
+  switching domains never mixes user data. The previous Math-only storage key
+  is read solely as a backwards-compatible migration source for `math`.
+- Generated JSON or other artifacts must be derived reproducibly and must
+  never become a competing source of truth.
 - The canonical YAML is JSON-shaped and every data object is covered by the
   checked-in schema. It defines display metadata as well as content:
-  `maturityLevels`, recursively nested `groups`, flat `concepts` with group
-  references, and prerequisite `dependencies`. All ids use one shared
-  kebab-case namespace.
+  `metadata`, `maturityLevels`, recursively nested `groups`, flat `concepts`
+  with group references, and prerequisite `dependencies`. Within a dataset,
+  all cross-referenced ids use one shared kebab-case namespace.
 - The earlier DSL/PEG direction is abandoned. There is no custom syntax
   parser: `loadKnowledgeBase()` uses the standard YAML library for mechanical
   loading, while a checked-in JSON Schema and unit tests enforce structural
@@ -30,14 +42,25 @@ the site displays it under the title.
   concepts only; group edges are display aggregates derived from underlying
   concept relationships. A later visualization checkpoint will weight them by
   how many concept edges they represent.
+- Vertical dependency order is a hard interaction and layout constraint: every
+  visible block must remain strictly below all visible prerequisite parents,
+  with enough center-to-center clearance for both full block heights plus the
+  configured gap. The rule applies to concept edges and the aggregate edges
+  produced by collapsed groups, both after automatic layout and while a user
+  drags a block. An upward drag stops at the greatest prerequisite boundary
+  without moving any prerequisite. A downward drag retains the manipulated
+  block's position and pushes only violating dependents downward, recursively
+  through their descendant dependency closure.
 - The graph flows generally from top to bottom, from foundations toward more
   mature concepts. Backward maturity edges require an explicit justification;
   non-universal links such as `sets -> functions`,
   `coordinate-geometry -> graphing`, and `combinatorics -> probability` are
   omitted rather than promoting introductory concepts to a later level.
-- Maturity ids, labels, order, descriptions, colors, and tints come entirely
-  from YAML. The current data defines `elementary` (grades 1–8), `high-school`
-  (grades 9–12), `undergraduate`, and `graduate`; all configured horizontal
+- Maturity ids, labels, ready-to-render suffixes, order, descriptions, colors,
+  and tints come entirely from each graph's YAML. The Math example defines
+  `elementary`, `high-school`, `undergraduate`, and `graduate`; the Physics
+  example independently defines `foundational`, `secondary`, and
+  `undergraduate`. All configured horizontal
   bands are shown in data order, including empty bands. Every group has one
   explicit data-defined maturity level and must reside wholly in that zone;
   concepts and nested groups must match their immediate parent's level. A
@@ -118,7 +141,7 @@ the site displays it under the title.
   coordinate system. Because groups cannot cross zones, each block has one
   unambiguous transform path. Cytoscape compound bounds are presentation output,
   not authoritative parent coordinates.
-- Historical metadata describes a development period or meaningful milestones,
+- Optional historical metadata describes a development period or meaningful milestones,
   not necessarily a single moment of invention. Notes distinguish discovery,
   notation, formalization, publication, and generalization; attributions favor
   honest cultural, co-discovery, and collaborative context over false
@@ -128,6 +151,9 @@ the site displays it under the title.
   automated checks complement rather than replace that review. When requested,
   a checkpoint may be consolidated into the primary local `main` worktree for
   review, but it is not pushed or deployed until accepted.
+- Review worktrees retain the semantic version currently on `main` and append
+  a sanitized feature-branch name to the displayed version. Semantic version
+  bumps happen only while integrating accepted work into `main`.
 
 ## Delivery checkpoints
 
@@ -157,16 +183,23 @@ the site displays it under the title.
    from the user's locally stored knowledge ratings.
 5. **Graph meaning and history:** weighted aggregate group-edge styling,
    history UI, and reviewed multi-source provenance for historical claims.
+6. **Multi-domain foundation (completed):** v0.3.0 recasts the application as
+   Knowledge Graph, auto-discovers independently authored YAML graphs, displays
+   the selected topic as a switchable subtitle, namespaces local state by graph
+   id, and bundles Math plus a compact Physics sample. Strict prerequisite
+   clearance and asymmetric drag propagation were included in the accepted
+   visual checkpoint on 2026-08-29. Stop before adding further domains or
+   expanding the generic metadata vocabulary.
 
 ## v0.1 — Walking skeleton (in progress)
 
 - [x] Scaffold Vite + Svelte 5 + TypeScript project
 - [x] Shared data model (`src/lib/types.ts`: ConceptGraph / nodes / edges)
 - [x] GitHub Actions workflow: test → build → deploy to Pages
-- [x] YAML knowledge base (`src/data/knowledge-base.yaml`) + standard YAML
+- [x] YAML knowledge graphs (`src/data/graphs/*.yaml`) + standard YAML
       loading, checked-in schema, and semantic validation (duplicate ids,
       dangling refs, cycle detection)
-- [x] Initial knowledge graph: 12 groups, 94 concepts, elementary →
+- [x] Initial Math example graph: 22 groups, 94 concepts, elementary →
       2nd-year undergraduate, every node linked to Wikipedia
 - [x] Interactive graph: Cytoscape + dagre, zoom/pan, prerequisite→dependent
       top-to-bottom flow
@@ -178,7 +211,7 @@ the site displays it under the title.
 - [x] Public GitHub repo, Pages enabled, first deploy live
       (https://mckoss.com/math-graph/)
 
-## v0.2 — Content & correctness
+## v0.2 — Math example content & correctness
 
 - [ ] Review the knowledge base for pedagogical accuracy (edges = true prerequisites)
 - [ ] Verify all Wikipedia links resolve (automated link check in CI)
@@ -225,19 +258,20 @@ the site displays it under the title.
       portrait viewports, including dynamic zoom bounds
 - [ ] Dark mode
 
-## Beyond v1.0 — Wikipedia-scale ingestion
+## Beyond v1.0 — Domain packs and large-corpus ingestion
 
-Goal: programmatically ingest ALL mathematics articles on Wikipedia to fill
-out the concept/topic tree. Pure code — no AI-in-the-loop ingestion. Optimize
-for bandwidth: bulk offline snapshots, never per-article API crawling.
+Goal: support independently maintained domain packs and programmatic bulk
+ingestion without coupling the explorer engine to one field. The Math pack may
+eventually ingest the mathematics corpus on Wikipedia; other domains choose
+their own authoritative sources. Pipelines remain reproducible, offline-first,
+and distinct from hand-curated ground truth.
 
 - [ ] Acquire the corpus offline (pick most efficient source):
-      - Kiwix ZIM of the Wikipedia mathematics subset (prebuilt, smallest), or
+      - Kiwix ZIM of a relevant Wikipedia subset (prebuilt, smallest), or
       - enwiki `pages-articles` dump + `categorylinks`/`page` SQL dumps from
         dumps.wikimedia.org, scoping via transitive closure of
-        Category:Mathematics (bounded depth + blocklist — the category graph
-        is noisy), cross-checked against WikiProject Mathematics' article
-        list (~30k articles)
+        a domain root category (bounded depth + blocklist — category graphs
+        are noisy), cross-checked against an appropriate curated article list
 - [ ] Offline extraction pipeline (Node script, checked into repo, cached
       artifacts): wikitext/HTML → title, lead-paragraph summary, internal
       links, categories, and History-section dates per article

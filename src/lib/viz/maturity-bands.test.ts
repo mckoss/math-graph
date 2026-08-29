@@ -24,6 +24,7 @@ const maturityLevels = [
 describe('assignMaturityBands', () => {
   it('uses the explicit data-defined level for concepts and groups', () => {
     const graph: ConceptGraph = {
+      metadata: { id: 'example', topic: 'Example' },
       maturityLevels,
       nodes: [
         { id: 'field', label: 'Field', isGroup: true, maturityLevel: 'undergraduate' },

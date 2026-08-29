@@ -1,5 +1,5 @@
 /**
- * Shared data model for the math concept graph.
+ * Shared data model for a domain-independent knowledge graph.
  *
  * This is the contract between knowledge-base loading and the visualization.
  * The loader produces a ConceptGraph; the visualization consumes one.
@@ -14,13 +14,25 @@ export interface MaturityLevel {
   color: string;
   tint: string;
   description?: string;
+  /** Optional ready-to-render qualifier appended to the level label. */
+  displaySuffix?: string;
   gradeRange?: { from: number; to: number };
 }
 
-export interface GraphNode {
-  /** Unique kebab-case identifier, e.g. "complex-numbers". */
+export interface KnowledgeGraphMetadata {
+  /** Stable kebab-case id used for domain selection and local state isolation. */
   id: string;
-  /** Human-readable display name, e.g. "Complex Numbers". */
+  /** Short human-readable subtitle, such as "Math" or "Physics". */
+  topic: string;
+  /** Marks the initially selected graph when several datasets are installed. */
+  default?: boolean;
+  description?: string;
+}
+
+export interface GraphNode {
+  /** Unique kebab-case identifier within this dataset. */
+  id: string;
+  /** Human-readable display name. */
   label: string;
   /**
    * Wikipedia article title (the part after /wiki/), e.g. "Complex_number".
@@ -43,7 +55,7 @@ export interface GraphNode {
 }
 
 export interface Attribution {
-  /** Person or culture credited, e.g. "Isaac Newton", "Babylonian mathematicians". */
+  /** Person or culture associated with the recorded development. */
   name: string;
   /** Wikipedia article title for the person/culture, if one exists. */
   wikipedia?: string;
@@ -73,6 +85,7 @@ export interface ConceptEdge {
 }
 
 export interface ConceptGraph {
+  metadata: KnowledgeGraphMetadata;
   maturityLevels: MaturityLevel[];
   nodes: GraphNode[];
   edges: ConceptEdge[];

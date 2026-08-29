@@ -1,11 +1,12 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://mckoss.com/math-graph/knowledge-base.schema.json",
-  "title": "Math Graph knowledge base",
+  "$id": "knowledge-base.schema.json",
+  "title": "Knowledge Graph dataset",
   "type": "object",
-  "required": ["maturityLevels", "groups", "dependencies"],
+  "required": ["metadata", "maturityLevels", "groups", "dependencies"],
   "additionalProperties": false,
   "properties": {
+    "metadata": { "$ref": "#/definitions/metadata" },
     "maturityLevels": { "type": "array", "minItems": 1, "items": { "$ref": "#/definitions/maturityLevel" } },
     "groups": { "type": "array", "items": { "$ref": "#/definitions/group" } },
     "concepts": { "type": "array", "items": { "$ref": "#/definitions/concept" } },
@@ -17,6 +18,17 @@
   "definitions": {
     "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
     "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+    "metadata": {
+      "type": "object",
+      "required": ["id", "topic"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/definitions/id" },
+        "topic": { "type": "string", "minLength": 1 },
+        "default": { "type": "boolean" },
+        "description": { "type": "string", "minLength": 1 }
+      }
+    },
     "gradeRange": {
       "type": "object",
       "required": ["from", "to"],
@@ -37,6 +49,7 @@
         "color": { "$ref": "#/definitions/color" },
         "tint": { "$ref": "#/definitions/color" },
         "description": { "type": "string" },
+        "displaySuffix": { "type": "string", "minLength": 1 },
         "gradeRange": { "$ref": "#/definitions/gradeRange" }
       }
     },

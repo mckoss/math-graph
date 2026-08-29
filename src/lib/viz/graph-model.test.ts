@@ -39,6 +39,7 @@ describe('computeVisible', () => {
 
   it('preserves nested groups until each level is expanded', () => {
     const graph: ConceptGraph = {
+      metadata: { id: 'example', topic: 'Example' },
       maturityLevels: [],
       nodes: [
         { id: 'root-group', label: 'Root', isGroup: true },

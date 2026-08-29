@@ -1,14 +1,14 @@
 # Knowledge-base schema
 
-Math Graph's canonical knowledge base is
-`src/data/knowledge-base.yaml`. `loadKnowledgeBase()` in
-`src/lib/knowledge-base/` reads it with the standard YAML library and
+Knowledge Graph discovers every canonical dataset under
+`src/data/graphs/*.yaml`. `loadKnowledgeBase()` in `src/lib/knowledge-base/`
+reads each file with the standard YAML library and
 mechanically normalizes it into the `ConceptGraph` used by the interface. The
 unit suite checks the parsed value against the checked-in JSON Schema at
 `src/data/knowledge-base.schema.json` and separately verifies semantic graph
 invariants.
 
-The YAML document owns the content taxonomy as well as the content itself.
+Each YAML document owns its topic metadata and content taxonomy as well as the content itself.
 Maturity ids, labels, ordering, descriptions, and colors are data—not constants
 in the TypeScript application. Groups may nest to any depth, but each group and
 all of its children occupy exactly one maturity zone. Concepts remain a flat
@@ -16,24 +16,46 @@ collection that references group ids.
 
 ## Top level
 
-The canonical document has four top-level lists:
+The canonical document has metadata and four top-level lists:
 
 ```yaml
+metadata:        # stable dataset identity and topic selector label
 maturityLevels:  # ordered display metadata for horizontal maturity bands
 groups:          # recursively nested organizational groups
 concepts:        # flat concept records with group and maturity references
 dependencies:    # prerequisite chains written with "->"
 ```
 
-All ids share the same kebab-case format and one global namespace. A maturity
+All cross-referenced ids within one dataset share the same kebab-case format
+and namespace. A maturity
 level, group, subgroup, or concept may not reuse another record's id.
+
+## Dataset metadata
+
+```yaml
+metadata:
+  id: physics
+  topic: Physics
+  default: false
+  description: "A starter map of physical science."
+```
+
+| Key           | Required | Value |
+| ------------- | -------- | ----- |
+| `id`          | yes      | stable kebab-case dataset id used to namespace browser state |
+| `topic`       | yes      | short subtitle and domain-selector label |
+| `default`     | no       | whether this graph opens initially; at most one bundled graph may set it |
+| `description` | no       | plain-language scope of the dataset |
+
+Dataset ids must be unique across files. Files are auto-discovered; no source
+registry needs to be edited when adding a domain.
 
 ## Maturity levels
 
 Maturity levels control band order, labels, and colors in the visualization.
-The current knowledge base defines elementary (grades 1–8), high school
-(grades 9–12), undergraduate, and graduate levels, but the loader and
-visualization do not hard-code that set.
+The Math example defines elementary through graduate levels; the Physics
+example defines foundational through undergraduate levels. The loader and
+visualization do not hard-code either set.
 
 ```yaml
 maturityLevels:
@@ -42,6 +64,7 @@ maturityLevels:
     order: 1
     color: "#d9920f"
     tint: "#fbeccd"
+    displaySuffix: "grades 1–8"
     gradeRange: { from: 1, to: 8 }
     description: "Foundational school mathematics"
 ```
@@ -55,6 +78,7 @@ maturityLevels:
 | `tint`        | yes      | CSS color for light backgrounds |
 | `gradeRange`  | no       | inclusive `{ from, to }` school-grade range |
 | `description` | no       | plain-language range or explanation, such as grade coverage |
+| `displaySuffix` | no     | ready-to-render qualifier appended after the level label |
 
 Every configured level produces a horizontal band, even when no current
 concept uses it.
@@ -193,5 +217,5 @@ unit suite enforces relationships that require a global view of the data:
   `from <= to`;
 - backward maturity dependencies are absent unless deliberately documented.
 
-Invalid source blocks a passing test run and therefore cannot deploy through
+Invalid source in any bundled graph blocks a passing test run and therefore cannot deploy through
 the normal GitHub Pages workflow.

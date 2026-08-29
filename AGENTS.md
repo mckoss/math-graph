@@ -26,13 +26,17 @@
 
 ## Versioning
 
-- `package.json` is the single source of truth for the application version.
-- Every push or merge reaching `main` must increase the semantic version. Use
-  patch, minor, or major according to compatibility and scope.
+- `package.json` is the single source of truth for the semantic application
+  version. Bump it only when accepted work is merged to `main`, using patch,
+  minor, or major according to compatibility and scope.
+- Feature worktrees keep the current `main` semantic version and append their
+  sanitized branch name to the displayed build version (for example,
+  `v0.2.6-generalized-explorer`). This makes review servers unambiguous without
+  consuming versions for unmerged iterations.
 - Keep the root version in `package-lock.json` synchronized with
   `package.json`.
-- The UI must display the build-injected version as `vMAJOR.MINOR.PATCH`
-  beneath the site title.
+- On `main`, the UI must display the build-injected version as
+  `vMAJOR.MINOR.PATCH` beneath the site title.
 
 ## Git and deployment
 

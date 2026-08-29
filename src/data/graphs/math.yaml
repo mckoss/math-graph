@@ -1,5 +1,5 @@
 # =============================================================================
-# Mathematics knowledge base
+# Math example knowledge graph
 #
 # Concepts from elementary school through graduate mathematics, with
 # prerequisite ("depends on") relationships.
@@ -10,6 +10,12 @@
 # Schema: see docs/SCHEMA.md
 # =============================================================================
 
+metadata:
+  id: math
+  topic: Math
+  default: true
+  description: "A connected map of mathematical knowledge, from counting through undergraduate study."
+
 maturityLevels:
   - id: elementary
     label: Elementary
@@ -17,6 +23,7 @@ maturityLevels:
     color: "#d9920f"
     tint: "#fff3d6"
     description: "Grades 1–8"
+    displaySuffix: "grades 1–8"
     gradeRange:
       from: 1
       to: 8
@@ -26,6 +33,7 @@ maturityLevels:
     color: "#d95f38"
     tint: "#fde8df"
     description: "Grades 9–12"
+    displaySuffix: "grades 9–12"
     gradeRange:
       from: 9
       to: 12

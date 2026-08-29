@@ -52,7 +52,7 @@ export interface Spacing {
 /**
  * Derive dagre separations from container size and visible node count: a
  * small collapsed view spreads generously, a ~100-node expanded view stays
- * compact enough to read. Rank flow is always top-to-bottom (mathematical
+ * compact enough to read. Rank flow is always top-to-bottom (knowledge
  * maturity increases downward), so ranks spread along y and siblings along x.
  */
 export function deriveSpacing(width: number, height: number, nodeCount: number): Spacing {

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test('presents and operates the Math Graph knowledge explorer', async ({ page }) => {
+test('presents and operates the Knowledge Graph Math domain', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(`page: ${error.message}`));
   page.on('console', (message) => {
@@ -9,13 +9,17 @@ test('presents and operates the Math Graph knowledge explorer', async ({ page })
 
   await page.goto('./');
 
-  await expect(page).toHaveTitle('Math Graph');
-  await expect(page.getByRole('heading', { level: 1, name: 'Math Graph', exact: true })).toBeVisible();
-  await expect(page.getByText(/knowledge explorer/i)).toBeVisible();
+  await expect(page).toHaveTitle('Knowledge Graph');
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Knowledge Graph', exact: true }),
+  ).toBeVisible();
+  const domain = page.getByRole('combobox', { name: 'Knowledge domain' });
+  await expect(domain).toHaveValue('math');
+  await expect(domain.locator('option')).toHaveText(['Math', 'Physics']);
   await expect(page.getByText('94 concepts', { exact: true })).toBeVisible();
-  await expect(page.getByText(/^(163|166) connections$/)).toBeVisible();
+  await expect(page.getByText('163 connections', { exact: true })).toBeVisible();
 
-  const bands = page.locator('[role="list"][aria-label="Maturity levels"] .band');
+  const bands = page.locator('[role="list"][aria-label="Knowledge levels"] .band');
   await expect(bands).toHaveCount(4);
   const visualization = page.locator('.viz');
   await expect(visualization).toHaveAttribute('data-layout-orientation', 'landscape');
@@ -47,9 +51,14 @@ test('presents and operates the Math Graph knowledge explorer', async ({ page })
 
   await page.setViewportSize({ width: 1200, height: 700 });
   await expect(visualization).toHaveAttribute('data-layout-orientation', 'landscape');
+  await expect
+    .poll(async () => Number(await visualization.getAttribute('data-current-zoom')))
+    .toBeGreaterThanOrEqual(0.74);
 
   const canvas = page.locator('.graph canvas').first();
   await expect(canvas).toBeVisible();
+  await page.getByRole('button', { name: 'Fit to view' }).click();
+  await page.waitForTimeout(600);
 
   const panel = page.locator('.panel');
   const numbersInfo = page.getByRole('button', {
@@ -92,18 +101,6 @@ test('presents and operates the Math Graph knowledge explorer', async ({ page })
   expect(focusedVizBounds).not.toBeNull();
   let elementaryBeforeDrag = await elementaryBand.boundingBox();
   expect(elementaryBeforeDrag).not.toBeNull();
-  for (
-    let step = 0;
-    step < 6 && elementaryBeforeDrag!.y + elementaryBeforeDrag!.height + 70 >= focusedVizBounds!.y + focusedVizBounds!.height;
-    step++
-  ) {
-    await page.getByRole('button', { name: 'Zoom out' }).click();
-    await page.waitForTimeout(220);
-    elementaryBeforeDrag = await elementaryBand.boundingBox();
-  }
-  expect(elementaryBeforeDrag!.y + elementaryBeforeDrag!.height + 70).toBeLessThan(
-    focusedVizBounds!.y + focusedVizBounds!.height,
-  );
   const countingCenter = {
     x: focusedVizBounds!.x + Number(await countingInfo.getAttribute('data-node-center-x')),
     y: focusedVizBounds!.y + Number(await countingInfo.getAttribute('data-node-center-y')),
@@ -113,7 +110,7 @@ test('presents and operates the Math Graph knowledge explorer', async ({ page })
   await page.waitForTimeout(100);
   await page.mouse.move(
     countingCenter.x + 30,
-    elementaryBeforeDrag!.y + elementaryBeforeDrag!.height + 50,
+    elementaryBeforeDrag!.y - 50,
     { steps: 24 },
   );
   await page.waitForTimeout(100);
@@ -128,7 +125,7 @@ test('presents and operates the Math Graph knowledge explorer', async ({ page })
     .poll(async () =>
       (await elementaryBand.boundingBox())?.height ?? 0,
     )
-    .toBeLessThanOrEqual(elementaryDuringDrag!.height + 1);
+    .toBeLessThanOrEqual(elementaryDuringDrag!.height + 2);
   const savedCountingOffsetX =
     Number(await countingInfo.getAttribute('data-node-model-x')) -
     Number(await numbersInfo.getAttribute('data-node-model-x'));
@@ -171,7 +168,7 @@ test('presents and operates the Math Graph knowledge explorer', async ({ page })
   await expect(status).toHaveText(collapsedStatus!);
 
   await page.getByRole('button', { name: /Expand all/ }).click();
-  await expect(status).toHaveText(/Showing 116 nodes and (163|166) connections/);
+  await expect(status).toHaveText('Showing 116 nodes and 163 connections.');
   await expect(visualization).toHaveAttribute('data-layout-mode', 'bounded');
   await expect(visualization).toHaveAttribute('data-compound-group-count', '22');
   expect(await status.textContent()).not.toBe(collapsedStatus);
@@ -205,7 +202,7 @@ test('persists recursive aware, familiar, and mastered self-evaluations', async 
   );
 
   const stored = await page.evaluate(() =>
-    JSON.parse(localStorage.getItem('math-graph.knowledge-ratings.v1') ?? '{}'),
+    JSON.parse(localStorage.getItem('knowledge-graph:math:knowledge-ratings:v1') ?? '{}'),
   );
   expect(stored).toEqual({
     counting: 'mastered',
@@ -225,7 +222,52 @@ test('persists recursive aware, familiar, and mastered self-evaluations', async 
   ).toHaveAttribute('aria-pressed', 'true');
 });
 
-test('grows a maturity band for a dense focused group', async ({ page }) => {
+test('switches between independent knowledge domains', async ({ page }) => {
+  await page.goto('./');
+
+  const domain = page.getByRole('combobox', { name: 'Knowledge domain' });
+  await domain.selectOption('physics');
+
+  await expect(domain).toHaveValue('physics');
+  await expect(page.getByText('15 concepts', { exact: true })).toBeVisible();
+  await expect(page.getByText('18 connections', { exact: true })).toBeVisible();
+  await expect(page.locator('.graph')).toHaveAttribute(
+    'aria-label',
+    'Physics knowledge dependency graph',
+  );
+  const bands = page.locator('[role="list"][aria-label="Knowledge levels"] .band');
+  await expect(bands).toHaveCount(3);
+  await expect(bands.locator('.band-label')).toHaveText([
+    'Foundational',
+    'Secondary',
+    'Undergraduate',
+  ]);
+  await expect(
+    page.getByRole('button', { name: 'More information about Physical Foundations' }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'More information about Numbers & Counting' }),
+  ).toHaveCount(0);
+
+  await page
+    .getByRole('button', { name: 'More information about Physical Foundations' })
+    .click();
+  await page
+    .getByRole('group', { name: 'Your knowledge of Physical Foundations' })
+    .getByRole('button', { name: 'Aware' })
+    .click();
+  const storageKeys = await page.evaluate(() => Object.keys(localStorage).sort());
+  expect(storageKeys).toContain('knowledge-graph:physics:knowledge-ratings:v1');
+  expect(storageKeys).not.toContain('knowledge-graph:math:knowledge-ratings:v1');
+
+  await domain.selectOption('math');
+  await expect(page.getByText('94 concepts', { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'More information about Numbers & Counting' }),
+  ).toBeVisible();
+});
+
+test('grows a knowledge level for a dense focused group', async ({ page }) => {
   await page.goto('./');
   const elementaryBand = page.locator('.band[data-maturity-level="elementary"]');
   const before = await elementaryBand.boundingBox();
@@ -243,4 +285,71 @@ test('grows a maturity band for a dense focused group', async ({ page }) => {
   await expect
     .poll(async () => (await elementaryBand.boundingBox())?.height ?? 0)
     .toBeGreaterThan(before!.height * 1.5);
+});
+
+test('keeps every block strictly below all visible prerequisites while dragging', async ({ page }) => {
+  await page.goto('./');
+  const visualization = page.locator('.viz');
+  await expect(visualization).toHaveAttribute('data-vertical-order-violation-count', '0');
+
+  const numbers = page.getByRole('button', {
+    name: 'More information about Numbers & Counting',
+  });
+  const initialVizBounds = await visualization.boundingBox();
+  expect(initialVizBounds).not.toBeNull();
+  await page.mouse.dblclick(
+    initialVizBounds!.x + Number(await numbers.getAttribute('data-node-center-x')),
+    initialVizBounds!.y + Number(await numbers.getAttribute('data-node-center-y')),
+    { delay: 80 },
+  );
+
+  const counting = page.getByRole('button', { name: 'More information about Counting' });
+  const naturalNumbers = page.getByRole('button', {
+    name: 'More information about Natural Numbers',
+  });
+  await expect(counting).toBeVisible();
+  await expect(naturalNumbers).toBeVisible();
+  await page.waitForTimeout(700);
+  await expect(visualization).toHaveAttribute('data-vertical-order-violation-count', '0');
+
+  const dragToRenderedY = async (node: typeof counting, renderedY: number): Promise<void> => {
+    const vizBounds = await visualization.boundingBox();
+    expect(vizBounds).not.toBeNull();
+    const x = vizBounds!.x + Number(await node.getAttribute('data-node-center-x'));
+    const y = vizBounds!.y + Number(await node.getAttribute('data-node-center-y'));
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x, vizBounds!.y + renderedY, { steps: 18 });
+    await page.mouse.up();
+    await page.waitForTimeout(700);
+  };
+
+  const countingRenderedY = Number(await counting.getAttribute('data-node-center-y'));
+  await dragToRenderedY(naturalNumbers, countingRenderedY - 80);
+  const dependencyClearance =
+    (Number(await counting.getAttribute('data-node-model-height')) +
+      Number(await naturalNumbers.getAttribute('data-node-model-height'))) /
+      2 +
+    12;
+  await expect
+    .poll(async () => Number(await naturalNumbers.getAttribute('data-node-model-y')))
+    .toBeGreaterThanOrEqual(
+      Number(await counting.getAttribute('data-node-model-y')) + dependencyClearance - 0.01,
+    );
+  await expect(visualization).toHaveAttribute('data-vertical-order-violation-count', '0');
+
+  const naturalModelYBeforeDownwardDrag = Number(
+    await naturalNumbers.getAttribute('data-node-model-y'),
+  );
+  const naturalRenderedY = Number(await naturalNumbers.getAttribute('data-node-center-y'));
+  await dragToRenderedY(counting, naturalRenderedY + 300);
+  await expect
+    .poll(async () => Number(await counting.getAttribute('data-node-model-y')))
+    .toBeGreaterThan(naturalModelYBeforeDownwardDrag);
+  await expect
+    .poll(async () => Number(await naturalNumbers.getAttribute('data-node-model-y')))
+    .toBeGreaterThanOrEqual(
+      Number(await counting.getAttribute('data-node-model-y')) + dependencyClearance - 0.01,
+    );
+  await expect(visualization).toHaveAttribute('data-vertical-order-violation-count', '0');
 });

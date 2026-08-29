@@ -3,7 +3,8 @@ import { sampleGraph } from './sample-graph';
 import {
   applyKnowledgeRating,
   conceptIdsForTarget,
-  KNOWLEDGE_STORAGE_KEY,
+  knowledgeStorageKey,
+  LEGACY_MATH_KNOWLEDGE_STORAGE_KEY,
   loadKnowledgeRatings,
   saveKnowledgeRatings,
   summarizeKnowledgeRating,
@@ -42,10 +43,19 @@ describe('knowledge self-evaluation', () => {
       getItem: (key: string) => values.get(key) ?? null,
       setItem: (key: string, value: string) => values.set(key, value),
     };
-    saveKnowledgeRatings(storage, { counting: 'aware', addition: 'mastered' });
-    expect(loadKnowledgeRatings(storage)).toEqual({ counting: 'aware', addition: 'mastered' });
+    saveKnowledgeRatings(storage, { counting: 'aware', addition: 'mastered' }, 'math');
+    expect(loadKnowledgeRatings(storage, 'math')).toEqual({ counting: 'aware', addition: 'mastered' });
 
-    values.set(KNOWLEDGE_STORAGE_KEY, JSON.stringify({ counting: 'invalid', addition: 'familiar' }));
-    expect(loadKnowledgeRatings(storage)).toEqual({ addition: 'familiar' });
+    values.set(knowledgeStorageKey('math'), JSON.stringify({ counting: 'invalid', addition: 'familiar' }));
+    expect(loadKnowledgeRatings(storage, 'math')).toEqual({ addition: 'familiar' });
+  });
+
+  it('isolates domains and reads the legacy Math key only for Math', () => {
+    const values = new Map([
+      [LEGACY_MATH_KNOWLEDGE_STORAGE_KEY, JSON.stringify({ counting: 'familiar' })],
+    ]);
+    const storage = { getItem: (key: string) => values.get(key) ?? null };
+    expect(loadKnowledgeRatings(storage, 'math')).toEqual({ counting: 'familiar' });
+    expect(loadKnowledgeRatings(storage, 'physics')).toEqual({});
   });
 });
