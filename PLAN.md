@@ -103,6 +103,8 @@ the site displays it under the title.
    review through `npm run dev`.
    The v0.2.4 follow-up makes non-overlap a hard constraint for layout and
    interaction.
+   The v0.2.5 checkpoint adds explicit in-block `?` controls for opening
+   details while reserving ordinary clicks for graph interaction.
 4. **Persistence and study controls:** locally persisted positions resilient to
    added or removed nodes, plus `to-learn` / `have-learned` bookmarks.
 5. **Graph meaning and history:** weighted aggregate group-edge styling,
