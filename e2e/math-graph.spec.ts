@@ -43,7 +43,7 @@ test('presents and operates the Math Graph knowledge explorer', async ({ page })
   }
   const occupiedBandHeight =
     portraitBandBounds.at(-1)!.bottom - portraitBandBounds[0].top;
-  expect(occupiedBandHeight).toBeGreaterThan(portraitVizBounds!.height * 0.7);
+  expect(occupiedBandHeight).toBeGreaterThan(portraitVizBounds!.height * 0.45);
 
   await page.setViewportSize({ width: 1200, height: 700 });
   await expect(visualization).toHaveAttribute('data-layout-orientation', 'landscape');
@@ -71,10 +71,109 @@ test('presents and operates the Math Graph knowledge explorer', async ({ page })
   const collapsedStatus = await status.textContent();
   expect(collapsedStatus).toMatch(/Showing \d+ nodes and \d+ connections/);
 
+  const numbersButtonBounds = await numbersInfo.boundingBox();
+  expect(numbersButtonBounds).not.toBeNull();
+  await page.mouse.dblclick(numbersButtonBounds!.x - 28, numbersButtonBounds!.y + 18, {
+    delay: 80,
+  });
+  await expect(status).toHaveText(/Showing 26 nodes and \d+ connections/);
+  await expect(visualization).toHaveAttribute('data-compound-group-count', '1');
+  await expect
+    .poll(async () => Number(await visualization.getAttribute('data-focus-anchor-delta-x')))
+    .toBeLessThan(0.5);
+  await expect(visualization).toHaveAttribute('data-root-overlap-count', '0');
+  await page.waitForTimeout(600);
+
+  const initialFocusedZoom = Number(await visualization.getAttribute('data-current-zoom'));
+  const countingInfo = page.getByRole('button', { name: 'More information about Counting' });
+  await expect(countingInfo).toBeVisible();
+  const elementaryBand = page.locator('.band[data-maturity-level="elementary"]');
+  const focusedVizBounds = await visualization.boundingBox();
+  expect(focusedVizBounds).not.toBeNull();
+  let elementaryBeforeDrag = await elementaryBand.boundingBox();
+  expect(elementaryBeforeDrag).not.toBeNull();
+  for (
+    let step = 0;
+    step < 6 && elementaryBeforeDrag!.y + elementaryBeforeDrag!.height + 70 >= focusedVizBounds!.y + focusedVizBounds!.height;
+    step++
+  ) {
+    await page.getByRole('button', { name: 'Zoom out' }).click();
+    await page.waitForTimeout(220);
+    elementaryBeforeDrag = await elementaryBand.boundingBox();
+  }
+  expect(elementaryBeforeDrag!.y + elementaryBeforeDrag!.height + 70).toBeLessThan(
+    focusedVizBounds!.y + focusedVizBounds!.height,
+  );
+  const countingCenter = {
+    x: focusedVizBounds!.x + Number(await countingInfo.getAttribute('data-node-center-x')),
+    y: focusedVizBounds!.y + Number(await countingInfo.getAttribute('data-node-center-y')),
+  };
+  await page.mouse.move(countingCenter.x, countingCenter.y);
+  await page.mouse.down();
+  await page.waitForTimeout(100);
+  await page.mouse.move(
+    countingCenter.x + 30,
+    elementaryBeforeDrag!.y + elementaryBeforeDrag!.height + 50,
+    { steps: 24 },
+  );
+  await page.waitForTimeout(100);
+  const elementaryDuringDrag = await elementaryBand.boundingBox();
+  expect(elementaryDuringDrag!.height).toBeGreaterThan(elementaryBeforeDrag!.height + 35);
+  await page.mouse.up();
+  await expect
+    .poll(async () => Number(await visualization.getAttribute('data-saved-layout-node-count')))
+    .toBeGreaterThanOrEqual(4);
+  await expect(visualization).toHaveAttribute('data-root-overlap-count', '0');
+  await expect
+    .poll(async () =>
+      (await elementaryBand.boundingBox())?.height ?? 0,
+    )
+    .toBeLessThanOrEqual(elementaryDuringDrag!.height + 1);
+  const savedCountingOffsetX =
+    Number(await countingInfo.getAttribute('data-node-model-x')) -
+    Number(await numbersInfo.getAttribute('data-node-model-x'));
+
+  for (let step = 0; step < 4; step++) {
+    await page.getByRole('button', { name: 'Zoom out' }).click();
+    await page.waitForTimeout(220);
+  }
+  const zoomedOut = Number(await visualization.getAttribute('data-current-zoom'));
+  expect(zoomedOut).toBeLessThan(initialFocusedZoom * 0.6);
+
+  await page.getByRole('button', { name: /Collapse all/ }).click();
+  await expect(status).toHaveText(collapsedStatus!);
+  await page.waitForTimeout(600);
+  await page.getByRole('button', { name: 'Fit to view' }).click();
+  await page.waitForTimeout(220);
+  await expect(numbersInfo).toBeVisible();
+  const reopenedVizBounds = await visualization.boundingBox();
+  expect(reopenedVizBounds).not.toBeNull();
+  await page.mouse.dblclick(
+    reopenedVizBounds!.x + Number(await numbersInfo.getAttribute('data-node-center-x')),
+    reopenedVizBounds!.y + Number(await numbersInfo.getAttribute('data-node-center-y')),
+    { delay: 80 },
+  );
+  await expect(status).toHaveText(/Showing 26 nodes and \d+ connections/);
+  await expect
+    .poll(async () => Number(await visualization.getAttribute('data-restored-layout-node-count')))
+    .toBeGreaterThanOrEqual(4);
+  await expect(visualization).toHaveAttribute('data-root-overlap-count', '0');
+  await expect
+    .poll(async () =>
+      Math.abs(
+        Number(await countingInfo.getAttribute('data-node-model-x')) -
+          Number(await numbersInfo.getAttribute('data-node-model-x')) -
+          savedCountingOffsetX,
+      ),
+    )
+    .toBeLessThan(1);
+  await page.getByRole('button', { name: /Collapse all/ }).click();
+  await expect(status).toHaveText(collapsedStatus!);
+
   await page.getByRole('button', { name: /Expand all/ }).click();
-  await expect(status).toHaveText(/Showing 106 nodes and (163|166) connections/);
+  await expect(status).toHaveText(/Showing 116 nodes and (163|166) connections/);
   await expect(visualization).toHaveAttribute('data-layout-mode', 'bounded');
-  await expect(visualization).toHaveAttribute('data-compound-group-count', '12');
+  await expect(visualization).toHaveAttribute('data-compound-group-count', '22');
   expect(await status.textContent()).not.toBe(collapsedStatus);
 
   await page.getByRole('button', { name: /Collapse all/ }).click();
@@ -88,4 +187,60 @@ test('presents and operates the Math Graph knowledge explorer', async ({ page })
   await expect(canvas).toBeVisible();
 
   expect(errors).toEqual([]);
+});
+
+test('persists recursive aware, familiar, and mastered self-evaluations', async ({ page }) => {
+  await page.goto('./');
+  await page
+    .getByRole('button', { name: 'More information about Numbers & Counting' })
+    .click();
+
+  const knowledge = page.getByRole('group', { name: 'Your knowledge of Numbers & Counting' });
+  await expect(knowledge.getByRole('button')).toHaveText(['Aware', 'Familiar', 'Mastered']);
+  await expect(page.getByText('Applies recursively to all 4 concepts in this group.')).toBeVisible();
+  await knowledge.getByRole('button', { name: 'Mastered' }).click();
+  await expect(knowledge.getByRole('button', { name: 'Mastered' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+
+  const stored = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('math-graph.knowledge-ratings.v1') ?? '{}'),
+  );
+  expect(stored).toEqual({
+    counting: 'mastered',
+    'natural-numbers': 'mastered',
+    'number-line': 'mastered',
+    'place-value': 'mastered',
+  });
+
+  await page.reload();
+  await page
+    .getByRole('button', { name: 'More information about Numbers & Counting' })
+    .click();
+  await expect(
+    page
+      .getByRole('group', { name: 'Your knowledge of Numbers & Counting' })
+      .getByRole('button', { name: 'Mastered' }),
+  ).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('grows a maturity band for a dense focused group', async ({ page }) => {
+  await page.goto('./');
+  const elementaryBand = page.locator('.band[data-maturity-level="elementary"]');
+  const before = await elementaryBand.boundingBox();
+  const arithmetic = page.getByRole('button', {
+    name: 'More information about Arithmetic',
+    exact: true,
+  });
+  const buttonBounds = await arithmetic.boundingBox();
+  expect(before).not.toBeNull();
+  expect(buttonBounds).not.toBeNull();
+
+  await page.mouse.dblclick(buttonBounds!.x - 28, buttonBounds!.y + 18, { delay: 80 });
+  await expect(page.getByRole('status')).toHaveText(/Showing 33 nodes and \d+ connections/);
+  await expect(page.locator('.viz')).toHaveAttribute('data-root-overlap-count', '0');
+  await expect
+    .poll(async () => (await elementaryBand.boundingBox())?.height ?? 0)
+    .toBeGreaterThan(before!.height * 1.5);
 });

@@ -4,10 +4,14 @@ import {
   assignMaturityBands,
   clampPointToMaturityBand,
   constrainPointAgainstMaturityBandNodes,
+  expandMaturityBandRects,
+  expandBandForBlock,
+  fitMaturityBandsToNodes,
   nodeBoxesOverlap,
   placeInMaturityBands,
   packMaturityBandNodes,
   separateMaturityBandNodes,
+  separateMaturityPeersFromPinned,
 } from './maturity-bands';
 
 const maturityLevels = [
@@ -18,11 +22,11 @@ const maturityLevels = [
 ];
 
 describe('assignMaturityBands', () => {
-  it('uses explicit levels and the lower median descendant level for groups', () => {
+  it('uses the explicit data-defined level for concepts and groups', () => {
     const graph: ConceptGraph = {
       maturityLevels,
       nodes: [
-        { id: 'field', label: 'Field', isGroup: true },
+        { id: 'field', label: 'Field', isGroup: true, maturityLevel: 'undergraduate' },
         {
           id: 'intro',
           label: 'Intro',
@@ -121,6 +125,85 @@ describe('placeInMaturityBands', () => {
   });
 });
 
+describe('expandMaturityBandRects', () => {
+  it('grows requested bands and shifts every later band downward', () => {
+    const expanded = expandMaturityBandRects(
+      [
+        { band: 0, y1: 100, y2: 200, count: 2 },
+        { band: 1, y1: 200, y2: 320, count: 3 },
+        { band: 2, y1: 320, y2: 400, count: 0 },
+      ],
+      new Map([[0, 180], [2, 100]]),
+    );
+
+    expect(expanded).toEqual([
+      { band: 0, y1: 100, y2: 280, count: 2 },
+      { band: 1, y1: 280, y2: 400, count: 3 },
+      { band: 2, y1: 400, y2: 500, count: 0 },
+    ]);
+  });
+});
+
+describe('drag-resized maturity bands', () => {
+  const bands = [
+    { band: 0, y1: 0, y2: 100, count: 1 },
+    { band: 1, y1: 100, y2: 200, count: 1 },
+    { band: 2, y1: 200, y2: 300, count: 1 },
+  ];
+
+  it('expands downward and shifts every later band and its members', () => {
+    const result = expandBandForBlock(bands, 1, { x: 20, y: 230 }, 40, 10);
+    expect(result.bands[1]).toMatchObject({ y1: 100, y2: 260 });
+    expect(result.bands[2]).toMatchObject({ y1: 260, y2: 360 });
+    expect(result.shifts.get(2)).toBe(60);
+  });
+
+  it('expands upward and shifts every earlier band and its members', () => {
+    const result = expandBandForBlock(bands, 1, { x: 20, y: 70 }, 40, 10);
+    expect(result.bands[0]).toMatchObject({ y1: -60, y2: 40 });
+    expect(result.bands[1]).toMatchObject({ y1: 40, y2: 200 });
+    expect(result.shifts.get(0)).toBe(-60);
+  });
+
+  it('contracts bands to their member bounds while preserving order', () => {
+    const result = fitMaturityBandsToNodes(
+      [
+        { id: 'a', band: 0, point: { x: 10, y: 40 }, width: 20, height: 20 },
+        { id: 'b', band: 0, point: { x: 10, y: 80 }, width: 20, height: 20 },
+        { id: 'c', band: 2, point: { x: 10, y: 250 }, width: 20, height: 20 },
+      ],
+      bands,
+      42,
+      10,
+    );
+    expect(result.bands.map((band) => band.y2 - band.y1)).toEqual([80, 42, 42]);
+    expect(result.bands[1].y1).toBe(result.bands[0].y2);
+    expect(result.bands[2].y1).toBe(result.bands[1].y2);
+    expect(result.positions.get('a')!.y).toBe(20);
+    expect(result.positions.get('c')!.y).toBe(142);
+  });
+
+  it('derives zone-local coordinates while preserving a dragged anchor', () => {
+    const result = fitMaturityBandsToNodes(
+      [
+        { id: 'a', band: 0, point: { x: 10, y: 40 }, width: 20, height: 20 },
+        { id: 'dragged', band: 1, point: { x: 10, y: 260 }, width: 20, height: 20 },
+        { id: 'peer', band: 1, point: { x: 10, y: 150 }, width: 20, height: 20 },
+        { id: 'c', band: 2, point: { x: 10, y: 250 }, width: 20, height: 20 },
+      ],
+      bands,
+      42,
+      10,
+      'dragged',
+    );
+
+    expect(result.positions.get('dragged')!.y).toBe(260);
+    expect(result.bands[1].y2 - result.bands[1].y1).toBe(150);
+    expect(result.bands[1].y1).toBe(result.bands[0].y2);
+    expect(result.bands[2].y1).toBe(result.bands[1].y2);
+  });
+});
+
 describe('clampPointToMaturityBand', () => {
   const band = { y1: 100, y2: 220 };
 
@@ -195,6 +278,37 @@ describe('constrainPointAgainstMaturityBandNodes', () => {
     expect(point.y).toBeGreaterThanOrEqual(132);
     expect(point.y).toBeLessThanOrEqual(228);
     expect(nodeBoxesOverlap(moving, point, peer, peer.point, 10)).toBe(false);
+  });
+});
+
+describe('separateMaturityPeersFromPinned', () => {
+  it('keeps the dragged block exact and moves a colliding peer chain', () => {
+    const pinned = {
+      id: 'pinned',
+      band: 0,
+      point: { x: 100, y: 400 },
+      width: 100,
+      height: 40,
+    };
+    const peers = [
+      { id: 'peer-a', band: 0, point: { x: 130, y: 400 }, width: 100, height: 40 },
+      { id: 'peer-b', band: 0, point: { x: 210, y: 400 }, width: 100, height: 40 },
+    ];
+    const positions = separateMaturityPeersFromPinned(pinned, peers, 10);
+
+    expect(positions.get('pinned')).toEqual(pinned.point);
+    for (let left = 0; left < peers.length + 1; left++) {
+      const boxes = [pinned, ...peers];
+      for (let right = left + 1; right < boxes.length; right++) {
+        expect(nodeBoxesOverlap(
+          boxes[left],
+          positions.get(boxes[left].id)!,
+          boxes[right],
+          positions.get(boxes[right].id)!,
+          10,
+        )).toBe(false);
+      }
+    }
   });
 });
 

@@ -23,6 +23,7 @@ interface SourceConcept {
 interface SourceGroup {
   id: string;
   label: string;
+  maturityLevel: string;
   wikipedia?: string;
   description?: string;
   groups?: SourceGroup[];
@@ -62,6 +63,18 @@ export function loadKnowledgeBase(source: string): ConceptGraph {
     addGroup(group);
   }
   nodes.push(...(document.concepts ?? []).map(conceptNode));
+
+  const groupsById = new Map(nodes.filter((node) => node.isGroup).map((node) => [node.id, node]));
+  for (const node of nodes) {
+    if (node.parent === undefined) continue;
+    const parent = groupsById.get(node.parent);
+    if (parent === undefined) continue;
+    if (node.maturityLevel !== parent.maturityLevel) {
+      throw new Error(
+        `Group ${parent.id} is in maturity zone ${parent.maturityLevel}, but child ${node.id} is in ${node.maturityLevel}`,
+      );
+    }
+  }
 
   const edges: ConceptEdge[] = [];
   const seen = new Set<string>();

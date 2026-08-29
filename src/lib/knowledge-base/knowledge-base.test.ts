@@ -17,7 +17,7 @@ const minimalDocument = {
   maturityLevels: [
     { id: 'elementary', label: 'Elementary', order: 1, color: '#111111', tint: '#eeeeee' },
   ],
-  groups: [{ id: 'basics', label: 'Basics' }],
+  groups: [{ id: 'basics', label: 'Basics', maturityLevel: 'elementary' }],
   concepts: [
     { id: 'counting', label: 'Counting', group: 'basics', maturityLevel: 'elementary' },
   ],
@@ -95,9 +95,11 @@ describe('loadKnowledgeBase', () => {
       'groups:',
       '  - id: basics',
       '    label: Basics',
+      '    maturityLevel: elementary',
       '    groups:',
       '      - id: numbers',
       '        label: Numbers',
+      '        maturityLevel: elementary',
       'concepts:',
       '  - id: counting',
       '    label: Counting',
@@ -113,8 +115,14 @@ describe('loadKnowledgeBase', () => {
 
     expect(loaded.maturityLevels).toHaveLength(1);
     expect(loaded.nodes).toEqual([
-      { id: 'basics', label: 'Basics', isGroup: true },
-      { id: 'numbers', label: 'Numbers', parent: 'basics', isGroup: true },
+      { id: 'basics', label: 'Basics', maturityLevel: 'elementary', isGroup: true },
+      {
+        id: 'numbers',
+        label: 'Numbers',
+        maturityLevel: 'elementary',
+        parent: 'basics',
+        isGroup: true,
+      },
       {
         id: 'counting',
         label: 'Counting',
@@ -134,6 +142,22 @@ describe('loadKnowledgeBase', () => {
       { from: 'counting', to: 'algebra' },
       { from: 'algebra', to: 'counting' },
     ]);
+  });
+
+  it('rejects a child assigned to a different maturity zone than its group', () => {
+    expect(() =>
+      loadKnowledgeBase([
+        'groups:',
+        '  - id: basics',
+        '    label: Basics',
+        '    maturityLevel: elementary',
+        'concepts:',
+        '  - id: algebra',
+        '    label: Algebra',
+        '    group: basics',
+        '    maturityLevel: high-school',
+      ].join('\n')),
+    ).toThrow(/Group basics is in maturity zone elementary/);
   });
 });
 
@@ -161,6 +185,11 @@ describe('knowledge-base graph invariants', () => {
     for (const concept of concepts) {
       expect(concept.parent, concept.id).toBeDefined();
       expect(groupIds.has(concept.parent!), concept.id).toBe(true);
+    }
+    const byId = new Map(graph.nodes.map((node) => [node.id, node]));
+    for (const node of graph.nodes) {
+      if (node.parent === undefined) continue;
+      expect(node.maturityLevel, node.id).toBe(byId.get(node.parent)?.maturityLevel);
     }
   });
 
@@ -210,8 +239,7 @@ describe('knowledge-base graph invariants', () => {
   });
 
   it('retains the expected graph coverage and metadata', () => {
-    expect(groups.length).toBeGreaterThanOrEqual(8);
-    expect(groups.length).toBeLessThanOrEqual(12);
+    expect(groups.length).toBe(22);
     expect(concepts.length).toBeGreaterThanOrEqual(60);
     expect(concepts.length).toBeLessThanOrEqual(100);
     expect(graph.edges.length).toBeGreaterThanOrEqual(100);
@@ -228,7 +256,7 @@ describe('knowledge-base graph invariants', () => {
     ]);
   });
 
-  it('keeps every former group dependency derivable from concept edges', () => {
+  it('keeps representative cross-group dependencies derivable from concept edges', () => {
     const parentOf = new Map(graph.nodes.map((node) => [node.id, node.parent]));
     const derived = new Set<string>();
     for (const edge of graph.edges) {
@@ -238,21 +266,21 @@ describe('knowledge-base graph invariants', () => {
     }
     for (const link of [
       'numbers -> arithmetic',
-      'arithmetic -> number-systems',
-      'arithmetic -> geometry',
-      'arithmetic -> probability-statistics',
-      'number-systems -> algebra',
-      'algebra -> functions-and-graphs',
-      'functions-and-graphs -> calculus',
-      'algebra -> trigonometry',
-      'trigonometry -> calculus',
-      'algebra -> linear-algebra',
-      'algebra -> probability-statistics',
-      'algebra -> discrete-math',
-      'discrete-math -> abstract-algebra',
-      'geometry -> trigonometry',
-      'geometry -> linear-algebra',
-      'linear-algebra -> abstract-algebra',
+      'arithmetic -> elementary-number-systems',
+      'arithmetic -> elementary-geometry',
+      'arithmetic -> elementary-probability-statistics',
+      'elementary-number-systems -> elementary-algebra',
+      'elementary-algebra -> elementary-functions-and-graphs',
+      'high-school-functions-and-graphs -> high-school-calculus',
+      'elementary-algebra -> trigonometry',
+      'trigonometry -> undergraduate-calculus',
+      'high-school-algebra -> high-school-linear-algebra',
+      'elementary-functions-and-graphs -> high-school-probability-statistics',
+      'elementary-algebra -> high-school-discrete-math',
+      'high-school-discrete-math -> abstract-algebra',
+      'high-school-geometry -> trigonometry',
+      'high-school-geometry -> high-school-linear-algebra',
+      'high-school-linear-algebra -> abstract-algebra',
     ]) {
       expect(derived, link).toContain(link);
     }

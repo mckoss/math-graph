@@ -1,5 +1,15 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import type { ConceptGraph, GraphNode } from './lib/types';
+  import {
+    applyKnowledgeRating,
+    KNOWLEDGE_RATINGS,
+    loadKnowledgeRatings,
+    saveKnowledgeRatings,
+    summarizeKnowledgeRating,
+    type KnowledgeRating,
+    type KnowledgeRatings,
+  } from './lib/knowledge-state';
   import GraphView from './lib/viz/GraphView.svelte';
   import { maturityPaint, orderedMaturityLevels } from './lib/viz/colors';
   import {
@@ -15,6 +25,7 @@
   let selectedId = $state<string | null>(null);
   let expanded = $state<ReadonlySet<string>>(new Set());
   let graphView = $state<GraphView>();
+  let knowledgeRatings = $state<KnowledgeRatings>({});
 
   const byId = $derived(nodesById(graph));
   const children = $derived(childrenByParent(graph));
@@ -22,6 +33,11 @@
   const conceptCount = $derived(graph.nodes.filter((n) => !n.isGroup).length);
   const visibleGraph = $derived(computeVisible(graph, expanded));
   const maturityLevels = $derived(orderedMaturityLevels(graph.maturityLevels));
+  const selectedKnowledge = $derived(
+    selectedId === null
+      ? null
+      : summarizeKnowledgeRating(graph, knowledgeRatings, selectedId),
+  );
 
   const selected = $derived(selectedId === null ? null : (byId.get(selectedId) ?? null));
   const prerequisites = $derived(
@@ -76,6 +92,16 @@
       if (ancestors.length > 0) selectedId = ancestors[ancestors.length - 1];
     }
   }
+
+  function setKnowledgeRating(rating: KnowledgeRating): void {
+    if (selectedId === null) return;
+    knowledgeRatings = applyKnowledgeRating(graph, knowledgeRatings, selectedId, rating);
+    saveKnowledgeRatings(localStorage, knowledgeRatings);
+  }
+
+  onMount(() => {
+    knowledgeRatings = loadKnowledgeRatings(localStorage);
+  });
 </script>
 
 <div class="shell">
@@ -168,6 +194,26 @@
             {expanded.has(selected.id) ? '⊟ Collapse group' : '⊞ Expand group'}
           </button>
         {/if}
+
+        <h3 class="panel-sub">Your knowledge</h3>
+        {#if selectedKnowledge?.mixed}
+          <p class="knowledge-status">Mixed ratings</p>
+        {/if}
+        {#if selected.isGroup}
+          <p class="knowledge-help">
+            Applies recursively to all {selectedKnowledge?.conceptCount ?? 0} concepts in this group.
+          </p>
+        {/if}
+        <div class="knowledge-options" role="group" aria-label={`Your knowledge of ${selected.label}`}>
+          {#each KNOWLEDGE_RATINGS as rating}
+            <button
+              class="knowledge-option"
+              class:active={selectedKnowledge?.rating === rating}
+              aria-pressed={selectedKnowledge?.rating === rating}
+              onclick={() => setKnowledgeRating(rating)}
+            >{rating[0].toUpperCase() + rating.slice(1)}</button>
+          {/each}
+        </div>
 
         {#if prerequisites.length > 0}
           <h3 class="panel-sub">Builds on</h3>
@@ -477,6 +523,37 @@
     text-transform: uppercase;
     letter-spacing: 0.09em;
     color: var(--ink-faint);
+  }
+  .knowledge-status,
+  .knowledge-help {
+    margin: -2px 0 8px;
+    color: var(--ink-soft);
+    font-size: 12px;
+    line-height: 1.4;
+  }
+  .knowledge-options {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+  .knowledge-option {
+    appearance: none;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 5px;
+    background: var(--paper);
+    color: var(--ink-soft);
+    font: 600 12px/1 var(--sans);
+    cursor: pointer;
+  }
+  .knowledge-option:hover {
+    border-color: var(--ink-faint);
+  }
+  .knowledge-option.active {
+    border-color: #2f6fc2;
+    background: #e5eef9;
+    color: #24589b;
+    box-shadow: inset 0 0 0 1px #2f6fc2;
   }
   .chips {
     display: flex;

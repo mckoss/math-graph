@@ -20,6 +20,7 @@ export const sampleGraph: ConceptGraph = {
       wikipedia: 'Arithmetic',
       description: 'The art of working with numbers: counting, combining, and comparing quantities.',
       isGroup: true,
+      maturityLevel: 'elementary',
     },
     {
       id: 'counting',
@@ -64,6 +65,7 @@ export const sampleGraph: ConceptGraph = {
       wikipedia: 'Algebra',
       description: 'Reasoning about unknown quantities with symbols and equations.',
       isGroup: true,
+      maturityLevel: 'elementary',
     },
     {
       id: 'variables',
@@ -90,7 +92,7 @@ export const sampleGraph: ConceptGraph = {
       description: 'Equations involving a squared unknown.',
       parent: 'algebra',
       isGroup: false,
-      maturityLevel: 'high-school',
+      maturityLevel: 'elementary',
     },
     // -- Geometry ------------------------------------------------------------
     {
@@ -99,6 +101,7 @@ export const sampleGraph: ConceptGraph = {
       wikipedia: 'Geometry',
       description: 'The study of shape, size, and space.',
       isGroup: true,
+      maturityLevel: 'elementary',
     },
     {
       id: 'shapes',
@@ -125,7 +128,7 @@ export const sampleGraph: ConceptGraph = {
       description: 'Ratios of triangle sides as functions of angles.',
       parent: 'geometry',
       isGroup: false,
-      maturityLevel: 'high-school',
+      maturityLevel: 'elementary',
     },
     // -- Top-level (no parent) ----------------------------------------------
     {
