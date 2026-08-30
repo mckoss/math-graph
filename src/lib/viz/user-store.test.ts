@@ -48,11 +48,12 @@ describe('sanitizeUserState', () => {
     const s = sanitizeUserState({
       positionOffsets: { a: { dx: 1, dy: -2 }, bad: { dx: 'x', dy: 0 }, worse: null },
       bookmarks: { b: 'to-learn', c: 'have-learned', d: 'finished' },
+      // Legacy expansion state is intentionally ignored.
       expanded: ['algebra', 42, 'geometry'],
     });
     expect(s.positionOffsets).toEqual({ a: { dx: 1, dy: -2 } });
     expect(s.bookmarks).toEqual({ b: 'to-learn', c: 'have-learned' });
-    expect(s.expanded).toEqual(['algebra', 'geometry']);
+    expect(s).not.toHaveProperty('expanded');
   });
 
   it('keeps a valid normalized band position and clamps it to the band', () => {
@@ -75,7 +76,6 @@ describe('load/save round trip', () => {
     state.positionOffsets.n1 = { dx: 10, dy: 20 };
     state.layoutAnchor = 'n1';
     state.bookmarks.n2 = 'to-learn';
-    state.expanded = ['cat'];
     saveUserState(state, storage);
     expect(loadUserState(storage)).toEqual(state);
   });
@@ -122,14 +122,13 @@ describe('UserStore', () => {
     expect(persisted.positionOffsets['new-node']).toEqual({ dx: 9, dy: 9 });
   });
 
-  it('setExpanded keeps stored ids outside the known-id set', () => {
+  it('ignores legacy expanded state when loading and saving', () => {
     const storage = seeded();
     const store = new UserStore(storage, 0);
-    // This app instance only knows about algebra + geometry.
-    store.setExpanded(['geometry'], new Set(['algebra', 'geometry']));
+    expect(store.state).not.toHaveProperty('expanded');
+    store.setBookmark('new-node', 'to-learn');
     store.flush();
-    const persisted = loadUserState(storage);
-    expect(persisted.expanded.sort()).toEqual(['geometry', 'ghost-cat']);
+    expect(JSON.parse(storage.data.get(STORAGE_KEY)!)).not.toHaveProperty('expanded');
   });
 
   it('clearOffsets removes all offsets but keeps bookmarks', () => {

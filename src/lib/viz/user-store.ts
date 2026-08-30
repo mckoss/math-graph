@@ -1,8 +1,7 @@
 /**
- * Client-side persistence for the study guide: user node-position tweaks,
- * bookmarks, and the expanded-categories set, in one versioned localStorage
- * key. The app must render perfectly with no stored state at all, so every
- * storage access is wrapped in try/catch.
+ * Client-side persistence for the study guide: user node-position tweaks and
+ * bookmarks in one versioned localStorage key. The app must render perfectly
+ * with no stored state at all, so every storage access is wrapped in try/catch.
  *
  * Resilience rule: entries whose node id is not in the current graph are
  * IGNORED at application time but NEVER deleted from the store — ids are
@@ -33,7 +32,6 @@ export interface UserState {
   positionOffsets: Record<string, Offset>;
   layoutAnchor: string | null;
   bookmarks: Record<string, Bookmark>;
-  expanded: string[];
   /** "Stratify by level" mode; defaults to on. */
   stratify: boolean;
 }
@@ -44,7 +42,7 @@ export interface StorageLike {
 }
 
 export function emptyUserState(): UserState {
-  return { positionOffsets: {}, layoutAnchor: null, bookmarks: {}, expanded: [], stratify: true };
+  return { positionOffsets: {}, layoutAnchor: null, bookmarks: {}, stratify: true };
 }
 
 /** Clamp an offset's magnitude (model units); direction is preserved. */
@@ -91,10 +89,6 @@ export function sanitizeUserState(raw: unknown): UserState {
     for (const [id, v] of Object.entries(bookmarks)) {
       if (v === 'to-learn' || v === 'have-learned') out.bookmarks[id] = v;
     }
-  }
-
-  if (Array.isArray(r.expanded)) {
-    out.expanded = r.expanded.filter((id): id is string => typeof id === 'string');
   }
 
   if (typeof r.layoutAnchor === 'string') out.layoutAnchor = r.layoutAnchor;
@@ -198,16 +192,6 @@ export class UserStore {
   /** Persist the "Stratify by level" toggle. */
   setStratify(on: boolean): void {
     this.state.stratify = on;
-    this.schedule();
-  }
-
-  /**
-   * Persist the expanded set. `knownIds` are the ids this app instance
-   * manages; stored ids outside it (from other graph versions) are kept.
-   */
-  setExpanded(expanded: Iterable<string>, knownIds: ReadonlySet<string>): void {
-    const kept = this.state.expanded.filter((id) => !knownIds.has(id));
-    this.state.expanded = [...expanded, ...kept];
     this.schedule();
   }
 }

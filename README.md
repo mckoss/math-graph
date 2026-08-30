@@ -26,7 +26,8 @@ that path is deployment identity, not an engine-level subject assumption.
   checked-in JSON Schema and unit checks validate its structure and semantic
   rules such as unique ids, valid edge references, and dependency cycles.
 - **The visualization** ([`src/lib/viz/`](src/lib/viz)) renders the graph with
-  [Cytoscape.js](https://js.cytoscape.org/) using a dagre layered layout.
+  [Cytoscape.js](https://js.cytoscape.org/) using a static, bottom-up canonical
+  dependency-rank layout computed for the fully expanded hierarchy.
   Groups collapse to single nodes (with cross-group edges aggregated)
   and expand in place into their member concepts.
 

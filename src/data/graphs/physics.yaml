@@ -36,6 +36,17 @@ groups:
     maturityLevel: secondary
     wikipedia: Classical_mechanics
     description: "Motion, forces, energy, and momentum in everyday-scale systems."
+    groups:
+      - id: kinematics
+        label: Kinematics
+        maturityLevel: secondary
+        wikipedia: Kinematics
+        description: "Descriptions of motion without reference to its causes."
+      - id: dynamics
+        label: Dynamics
+        maturityLevel: secondary
+        wikipedia: Dynamics_(mechanics)
+        description: "Forces and conserved quantities that explain changes in motion."
   - id: waves-and-oscillations
     label: "Waves & Oscillations"
     maturityLevel: secondary
@@ -72,31 +83,31 @@ concepts:
     maturityLevel: foundational
     description: "Physical quantities described by magnitude alone."
   - id: vectors
-    group: classical-mechanics
+    group: kinematics
     label: Vectors
     wikipedia: Euclidean_vector
     maturityLevel: secondary
     description: "Quantities described by both magnitude and direction."
   - id: motion
-    group: classical-mechanics
+    group: kinematics
     label: Motion
     wikipedia: Motion
     maturityLevel: secondary
     description: "Change in an object's position over time."
   - id: force
-    group: classical-mechanics
+    group: dynamics
     label: Force
     wikipedia: Force
     maturityLevel: secondary
     description: "An interaction that changes an object's motion."
   - id: energy
-    group: classical-mechanics
+    group: dynamics
     label: Energy
     wikipedia: Energy
     maturityLevel: secondary
     description: "A conserved capacity for causing physical change."
   - id: momentum
-    group: classical-mechanics
+    group: dynamics
     label: Momentum
     wikipedia: Momentum
     maturityLevel: secondary

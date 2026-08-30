@@ -13,32 +13,14 @@
   } from './lib/knowledge-state';
   import GraphView from './lib/viz/GraphView.svelte';
   import { maturityPaint, orderedMaturityLevels } from './lib/viz/colors';
-  import { loadUserState } from './lib/viz/user-store';
   import {
-    ancestorsOf,
     childrenByParent,
-    computeVisible,
     conceptCountOf,
     descendantsOf,
     nodesById,
-    representativeOf,
   } from './lib/viz/graph-model';
 
   let { graphs }: { graphs: ConceptGraph[] } = $props();
-  function loadExpanded(graph: ConceptGraph | undefined): ReadonlySet<string> {
-    if (graph === undefined) return new Set();
-    try {
-      const knownGroups = new Set(graph.nodes.filter((node) => node.isGroup).map((node) => node.id));
-      return new Set(
-        loadUserState(window.localStorage, graph.metadata.id).expanded.filter((id) =>
-          knownGroups.has(id),
-        ),
-      );
-    } catch {
-      return new Set();
-    }
-  }
-
   const initialGraph = untrack(() => graphs[0]);
   let selectedGraphId = $state(initialGraph?.metadata.id ?? '');
   const graph = $derived(
@@ -46,17 +28,12 @@
   );
 
   let selectedId = $state<string | null>(null);
-  const initialExpanded = loadExpanded(initialGraph);
-  let requestedExpanded = $state<ReadonlySet<string>>(initialExpanded);
-  let effectiveExpanded = $state<ReadonlySet<string>>(initialExpanded);
   let graphView = $state<GraphView>();
   let knowledgeRatings = $state<KnowledgeRatings>({});
 
   const byId = $derived(nodesById(graph));
   const children = $derived(childrenByParent(graph));
-  const groupIds = $derived(graph.nodes.filter((n) => n.isGroup).map((n) => n.id));
   const conceptCount = $derived(graph.nodes.filter((n) => !n.isGroup).length);
-  const visibleGraph = $derived(computeVisible(graph, effectiveExpanded));
   const maturityLevels = $derived(orderedMaturityLevels(graph.maturityLevels));
   const selectedKnowledge = $derived(
     selectedId === null
@@ -77,8 +54,7 @@
       const inside = direction === 'in' ? edge.to : edge.from;
       const outside = direction === 'in' ? edge.from : edge.to;
       if (!scope.has(inside) || scope.has(outside)) continue;
-      const visibleId = representativeOf(byId, effectiveExpanded, outside);
-      if (visibleId !== null && visibleId !== selected.id) ids.add(visibleId);
+      if (outside !== selected.id) ids.add(outside);
     }
     return [...ids].flatMap((id) => {
       const node = byId.get(id);
@@ -111,51 +87,8 @@
     return history.circa === true ? `Circa ${period}` : period;
   }
 
-  function setExpanded(next: ReadonlySet<string>): void {
-    requestedExpanded = next;
-    graphView?.persistExpanded(next, new Set(groupIds));
-  }
-
-  /** Select a node; expand its ancestor groups so it is actually visible. */
   function selectNode(id: string | null): void {
-    if (id !== null) {
-      const ancestors = ancestorsOf(byId, id).filter((a) => !requestedExpanded.has(a));
-      if (ancestors.length > 0) setExpanded(new Set([...requestedExpanded, ...ancestors]));
-    }
     selectedId = id;
-  }
-
-  function toggleGroup(id: string): void {
-    const next = new Set(requestedExpanded);
-    if (next.has(id)) {
-      next.delete(id);
-      // If the selection just got swallowed by the collapse, select the group.
-      if (selectedId !== null && (selectedId === id || ancestorsOf(byId, selectedId).includes(id))) {
-        selectedId = id;
-      }
-    } else {
-      next.add(id);
-    }
-    setExpanded(next);
-  }
-
-  function panelDoubleClick(event: MouseEvent): void {
-    if (selected === null) return;
-    if ((event.target as Element).closest('button, a, input, select, textarea')) return;
-    const groupId = selected.isGroup ? selected.id : selected.parent;
-    if (groupId !== undefined) toggleGroup(groupId);
-  }
-
-  function expandAll(): void {
-    setExpanded(new Set(groupIds));
-  }
-
-  function collapseAll(): void {
-    setExpanded(new Set());
-    if (selectedId !== null) {
-      const ancestors = ancestorsOf(byId, selectedId);
-      if (ancestors.length > 0) selectedId = ancestors[ancestors.length - 1];
-    }
   }
 
   function setKnowledgeRating(rating: KnowledgeRating): void {
@@ -167,8 +100,6 @@
   function selectGraph(id: string): void {
     selectedGraphId = id;
     selectedId = null;
-    requestedExpanded = loadExpanded(graphs.find((candidate) => candidate.metadata.id === id));
-    effectiveExpanded = requestedExpanded;
     knowledgeRatings = loadKnowledgeRatings(localStorage, id);
   }
 
@@ -209,16 +140,13 @@
       <GraphView
         bind:this={graphView}
         {graph}
-        expanded={requestedExpanded}
         {selectedId}
         onSelect={selectNode}
-        onToggleGroup={toggleGroup}
-        onEffectiveExpanded={(next) => effectiveExpanded = next}
       />
     {/key}
 
     <p class="sr-only" role="status" aria-live="polite">
-      Showing {visibleGraph.nodes.length} nodes and {visibleGraph.edges.length} connections.
+      Showing {graph.nodes.length} nodes and {graph.edges.length} connections.
     </p>
 
     <div class="controls" role="toolbar" aria-label="Graph controls">
@@ -229,8 +157,6 @@
       </div>
       <div class="control-group">
         <button class="ctl wide" onclick={() => graphView?.layoutNow()}>Layout Now</button>
-        <button class="ctl wide" onclick={expandAll}>⊞ Expand all</button>
-        <button class="ctl wide" onclick={collapseAll}>⊟ Collapse all</button>
       </div>
     </div>
 
@@ -251,14 +177,13 @@
     </div>
 
     <p class="hint" hidden={selected !== null}>
-      Click a block for details · drag to move nearby concepts · double-click a group to open it
+      Click a block for details · drag to move nearby concepts · zoom for more detail
     </p>
 
     <aside
       class="panel"
       class:open={selected !== null}
       aria-hidden={selected === null}
-      ondblclick={panelDoubleClick}
     >
       {#if selected}
         <button class="close" aria-label="Close panel" onclick={() => (selectedId = null)}>×</button>
@@ -316,12 +241,6 @@
               </ul>
             {/if}
           </section>
-        {/if}
-
-        {#if selected.isGroup}
-          <button class="expand-btn" onclick={() => toggleGroup(selected.id)}>
-            {requestedExpanded.has(selected.id) ? '⊟ Collapse group' : '⊞ Expand group'}
-          </button>
         {/if}
 
         <h3 class="panel-sub">Your knowledge</h3>
@@ -708,20 +627,6 @@
   .history-attributions a {
     color: var(--ink);
     text-underline-offset: 2px;
-  }
-  .expand-btn {
-    appearance: none;
-    border: 1px solid var(--line);
-    background: var(--hover);
-    color: var(--ink);
-    font: 600 13px/1 var(--sans);
-    padding: 9px 14px;
-    border-radius: 9px;
-    cursor: pointer;
-    margin-bottom: 8px;
-  }
-  .expand-btn:hover {
-    background: var(--line);
   }
   .panel-sub {
     margin: 18px 0 8px;

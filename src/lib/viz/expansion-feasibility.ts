@@ -1,9 +1,3 @@
-export interface ZoomSearchOptions {
-  startZoom: number;
-  maximumZoom: number;
-  iterations?: number;
-}
-
 export interface RenderedBlockRect {
   id: string;
   parentId?: string;
@@ -69,57 +63,4 @@ export function nonContainmentOverlapCount(
     }
   }
   return count;
-}
-
-/** Find the lowest zoom at or above startZoom for which a layout is safe. */
-export function minimumFeasibleZoom(
-  isFeasible: (zoom: number) => boolean,
-  options: ZoomSearchOptions,
-): number | null {
-  const start = Math.max(0.001, options.startZoom);
-  const maximum = Math.max(start, options.maximumZoom);
-  if (isFeasible(start)) return start;
-  if (!isFeasible(maximum)) return null;
-
-  let low = start;
-  let high = maximum;
-  for (let index = 0; index < (options.iterations ?? 14); index++) {
-    const middle = (low + high) / 2;
-    if (isFeasible(middle)) high = middle;
-    else low = middle;
-  }
-  return high;
-}
-
-/**
- * Requested groups whose recorded threshold fits the camera. Ancestors must
- * be visible before descendants; reopening uses a margin to avoid flicker.
- */
-export function feasibleRequestedGroups(
-  requested: ReadonlySet<string>,
-  current: ReadonlySet<string>,
-  requiredZoom: ReadonlyMap<string, number>,
-  zoom: number,
-  parentById: ReadonlyMap<string, string | undefined>,
-  reopenRatio = 1.06,
-): Set<string> {
-  const result = new Set<string>();
-  const depth = (id: string): number => {
-    let count = 0;
-    let parent = parentById.get(id);
-    while (parent !== undefined) {
-      count += 1;
-      parent = parentById.get(parent);
-    }
-    return count;
-  };
-  const ordered = [...requested].sort((a, b) => depth(a) - depth(b) || a.localeCompare(b));
-  for (const id of ordered) {
-    const parent = parentById.get(id);
-    if (parent !== undefined && requested.has(parent) && !result.has(parent)) continue;
-    const threshold = requiredZoom.get(id) ?? 0;
-    const limit = current.has(id) ? threshold : threshold * reopenRatio;
-    if (zoom + 1e-6 >= limit) result.add(id);
-  }
-  return result;
 }
