@@ -14,13 +14,12 @@
     representativeOf,
     type VisibleGraph,
   } from './graph-model';
-  import { groupPaint, maturityPaint, orderedMaturityLevels } from './colors';
+  import { maturityPaint, orderedMaturityLevels } from './colors';
   import { compactRanksTowardCenterline } from './centerline-layout';
   import {
     assignMaturityBands,
     clampPointToMaturityBand,
     constrainPointAgainstMaturityBandNodes,
-    expandMaturityBandRects,
     fitMaturityBandsToNodes,
     packMaturityBandNodes,
     placeInMaturityBands,
@@ -30,7 +29,10 @@
   } from './maturity-bands';
   import {
     captureLocalLayout,
+    captureParentLocalLayout,
     restoreLocalLayout,
+    restoreParentLocalLayout,
+    type ParentLocalPosition,
     type SavedLocalPosition,
   } from './session-layout';
   import {
@@ -56,6 +58,12 @@
     enforceVerticalDependencyOrder,
   } from './vertical-order';
   import { clampOffset, UserStore } from './user-store';
+  import {
+    dependencyRanks,
+    feasibleRequestedGroups,
+    minimumFeasibleZoom,
+    nonContainmentOverlapCount,
+  } from './expansion-feasibility';
 
   cytoscape.use(dagre);
 
@@ -68,42 +76,100 @@
     onSelect: (id: string | null) => void;
     /** Group should toggle open/closed (double-click on a group or on a child). */
     onToggleGroup: (id: string) => void;
+    /** Reports the subset that is currently safe to render at this zoom. */
+    onEffectiveExpanded: (ids: ReadonlySet<string>) => void;
   }
 
-  let { graph, expanded, selectedId, onSelect, onToggleGroup }: Props = $props();
+  let { graph, expanded, selectedId, onSelect, onToggleGroup, onEffectiveExpanded }: Props = $props();
 
   let container: HTMLDivElement;
   let cy: cytoscape.Core | undefined;
-  let previousExpanded = new Set<string>();
+  // Stored expansions are part of the initial view, not a new focus action.
+  let effectiveExpanded = $state<ReadonlySet<string>>(new Set(untrack(() => expanded)));
+  let previousExpanded = new Set(untrack(() => expanded));
+  let previousRequestedExpanded = new Set(untrack(() => expanded));
+  const requiredExpansionZoom = new Map<string, number>();
+  let measuringZoom = false;
+  let animatingExpansionZoom = false;
+  let feasibilityFrame = 0;
   let compoundGroupCount = $state(0);
   let currentZoom = $state(1);
+  let focusLocalCoordinateScale = $state(1);
+  let focusRequiredZoom = $state(1);
   let focusAnchorDeltaX = $state(0);
   let surroundingPositionDrift = $state(0);
   let rootOverlapCount = $state(0);
   let verticalOrderViolationCount = $state(0);
+  let verticalOrderViolationEdges = $state('');
+  let historicalOrderMismatchEdgeCount = $state(0);
   let savedLayoutNodeCount = $state(0);
   let restoredLayoutNodeCount = $state(0);
   let restoredUserPositionCount = $state(0);
-  const savedGroupLayouts = new Map<string, Map<string, SavedLocalPosition>>();
+  const savedGroupLayouts = new Map<string, Map<string, ParentLocalPosition>>();
+  interface ExpansionCameraSnapshot {
+    zoom: number;
+    pan: cytoscape.Position;
+    cameraChanged: boolean;
+  }
+  const expansionSnapshots = new Map<string, ExpansionCameraSnapshot>();
+  const canonicalGroupAnchors = new Map<string, cytoscape.Position>();
+  const collapsedGroupFootprints = new Map<string, BBox>();
   const layoutBaselines = new Map<string, cytoscape.Position>();
   let userStore: UserStore | undefined;
-  let infoButtons = $state<Array<{
+  let renderDiagnosticsFrame = 0;
+  let pendingTapTimer: ReturnType<typeof setTimeout> | undefined;
+  let nodeDiagnostics = $state<Array<{
     id: string;
     label: string;
-    left: number;
-    top: number;
-    nodeCenterX: number;
-    nodeCenterY: number;
+    centerX: number;
+    centerY: number;
+    width: number;
+    height: number;
     modelX: number;
     modelY: number;
+    actualModelX: number;
+    actualModelY: number;
     modelHeight: number;
   }>>([]);
-  let infoButtonFrame = 0;
 
   const FIT_PADDING = 36;
-  const LAYOUT_MS = 480;
+  // Give the eye enough time to follow a re-layout. Cytoscape applies the
+  // cubic curve to every node and the viewport together, so motion starts and
+  // settles gently instead of reading as an instantaneous redraw.
+  const LAYOUT_MS = 900;
   const DEPENDENCY_GAP = 12;
   const MAX_PERSISTED_OFFSET = 10_000;
+
+  /**
+   * Below 100%, Cytoscape's camera scales blocks normally. Above 100%, shrink
+   * their model-space styling by the reciprocal zoom so rendered boxes and
+   * typography remain at their nominal on-screen size while centers spread.
+   */
+  function applyZoomRenderScale(c: cytoscape.Core): void {
+    const inverseZoom = 1 / Math.max(c.zoom(), 1);
+    c.batch(() => {
+      c.nodes().forEach((node) => {
+        const isGroup = node.data('kind') === 'group';
+        const isExpanded = isGroup && node.data('expanded') === 1;
+        const padding = isExpanded ? 30 : isGroup ? 20 : 14;
+        const fontSize = isGroup ? 17 : 15;
+        const textMaxWidth = isGroup ? 210 : 170;
+        // Interaction emphasis must not change a block's measured geometry:
+        // doing so can invalidate an already accepted prerequisite clearance.
+        // Hover and selection use overlays below, which do not affect layout.
+        const borderWidth = isGroup ? 2.5 : 1.5;
+        node.style({
+          padding: padding * inverseZoom,
+          'font-size': fontSize * inverseZoom,
+          'text-max-width': textMaxWidth * inverseZoom,
+          'border-width': borderWidth * inverseZoom,
+          'text-margin-y': (isExpanded ? 16 : 0) * inverseZoom,
+          'overlay-padding': 8 * inverseZoom,
+        });
+      });
+    });
+    scheduleRenderDiagnostics();
+  }
 
   function currentUserStore(): UserStore {
     userStore ??= new UserStore(undefined, 250, graph.metadata.id);
@@ -210,16 +276,6 @@
   const children = $derived(childrenByParent(graph));
   const maturityLevels = $derived(orderedMaturityLevels(graph.maturityLevels));
   const bandAssignments = $derived(assignMaturityBands(graph));
-  /** Group id -> paint, by order of appearance in the graph. */
-  const groupPaintById = $derived.by(() => {
-    const map = new Map<string, ReturnType<typeof groupPaint>>();
-    let i = 0;
-    for (const n of graph.nodes) {
-      if (n.isGroup) map.set(n.id, groupPaint(i++));
-    }
-    return map;
-  });
-
   // ---- Public controls (used by App via bind:this) -------------------------
 
   export function fit(): void {
@@ -229,11 +285,17 @@
     c.nodes().forEach((node) => {
       positions.set(node.id(), { ...node.position() });
     });
+    expansionSnapshots.forEach((snapshot) => {
+      snapshot.cameraChanged = true;
+    });
     animateViewport(c, targetBBox(c, positions), containerSize(), true);
   }
 
   export function zoomBy(factor: number): void {
     if (!cy) return;
+    expansionSnapshots.forEach((snapshot) => {
+      snapshot.cameraChanged = true;
+    });
     cy.stop();
     const level = cy.zoom() * factor;
     cy.animate(
@@ -243,47 +305,89 @@
   }
 
   export function layoutNow(): void {
-    currentUserStore().clearOffsets();
-    currentUserStore().flush();
+    const c = cy;
+    if (!c) return;
+    const store = currentUserStore();
+    store.setExpanded(
+      expanded,
+      new Set(graph.nodes.filter((node) => node.isGroup).map((node) => node.id)),
+    );
+    store.clearOffsets();
+    store.flush();
     layoutBaselines.clear();
     savedGroupLayouts.clear();
     savedLayoutNodeCount = 0;
     restoredLayoutNodeCount = 0;
     restoredUserPositionCount = 0;
+    // Dagre uses Cytoscape's element iteration order as a tie-breaker. An
+    // incrementally expanded graph has a different insertion history than the
+    // same visible graph after refresh, so rebuild it in canonical data order
+    // before an explicit reset. Preserve every current position across that
+    // synchronous rebuild so the subsequent preset layout visibly animates
+    // blocks from where the user last saw them instead of redrawing at zero.
+    const visible = computeVisible(graph, effectiveExpanded);
+    const currentPositions = new Map<string, cytoscape.Position>();
+    c.nodes().not(':parent').forEach((node) => {
+      currentPositions.set(node.id(), { ...node.position() });
+    });
+    const orderedNodes = [...visible.nodes].sort(
+      (a, b) => ancestorsOf(byId, a.id).length - ancestorsOf(byId, b.id).length,
+    );
+    c.batch(() => {
+      c.elements().remove();
+      for (const node of orderedNodes) {
+        c.add({
+          group: 'nodes',
+          data: nodeData(node),
+          position: currentPositions.get(node.id) ?? { x: 0, y: 0 },
+        });
+      }
+      for (const edge of visible.edges) {
+        c.add({
+          group: 'edges',
+          data: {
+            id: `e\0${edge.from}\0${edge.to}`,
+            source: edge.from,
+            target: edge.to,
+            historicalOrderMismatch: edge.historicalOrderMismatch ? 1 : 0,
+          },
+        });
+      }
+    });
+    c.nodes(':parent').ungrabify();
+    c.nodes().not(':parent').grabify();
+    compoundGroupCount = c.nodes(':parent').length;
     runLayout(false);
+  }
+
+  export function persistExpanded(
+    expandedIds: Iterable<string>,
+    knownGroupIds: ReadonlySet<string>,
+  ): void {
+    currentUserStore().setExpanded(expandedIds, knownGroupIds);
+    currentUserStore().flush();
   }
 
   // ---- Element construction ------------------------------------------------
 
-  /** The hue of the nearest group ancestor, used to tie children together. */
-  function haloFor(n: GraphNode): string | undefined {
-    let cur = n.parent;
-    while (cur !== undefined) {
-      const paint = groupPaintById.get(cur);
-      if (paint) return paint.halo;
-      cur = byId.get(cur)?.parent;
-    }
-    return undefined;
-  }
-
   function nodeData(n: GraphNode): Record<string, unknown> {
-    const parent = n.parent !== undefined && expanded.has(n.parent) ? n.parent : undefined;
+    const parent = n.parent !== undefined && effectiveExpanded.has(n.parent) ? n.parent : undefined;
     if (n.isGroup) {
-      const paint = groupPaintById.get(n.id) ?? groupPaint(0);
+      const paint = maturityPaint(maturityLevels, n.maturityLevel);
       const count = conceptCountOf(children, n.id);
       return {
         id: n.id,
         ...(parent === undefined ? {} : { parent }),
         kind: 'group',
-        expanded: expanded.has(n.id) ? 1 : 0,
-        label: `${n.label}\n${expanded.has(n.id) ? '⊟' : '⊞'} ${count} concept${count === 1 ? '' : 's'}`,
+        expanded: effectiveExpanded.has(n.id) ? 1 : 0,
+        label: `${n.label}\n${effectiveExpanded.has(n.id) ? '⊟' : '⊞'} ${count} concept${count === 1 ? '' : 's'}`,
         fill: paint.tint,
         border: paint.color,
         text: paint.color,
       };
     }
     const paint = maturityPaint(maturityLevels, n.maturityLevel);
-    const data: Record<string, unknown> = {
+    return {
       id: n.id,
       ...(parent === undefined ? {} : { parent }),
       kind: 'concept',
@@ -292,9 +396,6 @@
       border: paint.color,
       text: '#33302a',
     };
-    const halo = haloFor(n);
-    if (halo !== undefined) data.halo = halo;
-    return data;
   }
 
   /**
@@ -306,6 +407,8 @@
     n: GraphNode,
     oldPos: Map<string, cytoscape.Position>,
   ): cytoscape.Position | undefined {
+    const canonicalAnchor = canonicalGroupAnchors.get(n.id);
+    if (canonicalAnchor !== undefined) return { ...canonicalAnchor };
     for (const anc of ancestorsOf(byId, n.id)) {
       const p = oldPos.get(anc);
       if (p) return { ...p };
@@ -324,11 +427,34 @@
     return undefined;
   }
 
-  function syncElements(vis: VisibleGraph, focusId?: string): void {
+  function syncElements(
+    vis: VisibleGraph,
+    focusId?: string,
+    collapsedId?: string,
+  ): void {
     const c = cy;
     if (!c) return;
+    if (focusId !== undefined && !expansionSnapshots.has(focusId)) {
+      const focusNode = c.getElementById(focusId);
+      canonicalGroupAnchors.set(focusId, { ...focusNode.position() });
+      const collapsedBox = focusNode.boundingBox({ includeLabels: true, includeOverlays: false });
+      collapsedGroupFootprints.set(focusId, {
+        x1: collapsedBox.x1,
+        y1: collapsedBox.y1,
+        x2: collapsedBox.x2,
+        y2: collapsedBox.y2,
+      });
+      expansionSnapshots.set(focusId, {
+        zoom: c.zoom(),
+        pan: { ...c.pan() },
+        cameraChanged: false,
+      });
+    }
+    const collapseSnapshot = collapsedId === undefined
+      ? undefined
+      : expansionSnapshots.get(collapsedId);
     c.nodes(':parent')
-      .filter((node) => !expanded.has(node.id()))
+      .filter((node) => !effectiveExpanded.has(node.id()))
       .forEach((node: cytoscape.NodeSingular) => saveGroupLayout(node.id()));
     const oldPos = new Map<string, cytoscape.Position>();
     c.nodes().forEach((node) => {
@@ -346,7 +472,9 @@
         .filter((node) => !wantNodes.has(node.id()))
         .remove();
 
-      const fallback = { x: (c.extent().x1 + c.extent().x2) / 2, y: (c.extent().y1 + c.extent().y2) / 2 };
+      const fallback = oldPos.size === 0
+        ? { x: 0, y: 0 }
+        : { x: (c.extent().x1 + c.extent().x2) / 2, y: (c.extent().y1 + c.extent().y2) / 2 };
       const orderedNodes = [...vis.nodes].sort(
         (a, b) => ancestorsOf(byId, a.id).length - ancestorsOf(byId, b.id).length,
       );
@@ -360,8 +488,22 @@
       }
       for (const e of vis.edges) {
         const id = `e\0${e.from}\0${e.to}`;
-        if (c.getElementById(id).empty()) {
-          c.add({ group: 'edges', data: { id, source: e.from, target: e.to } });
+        const existing = c.getElementById(id);
+        if (existing.empty()) {
+          c.add({
+            group: 'edges',
+            data: {
+              id,
+              source: e.from,
+              target: e.to,
+              historicalOrderMismatch: e.historicalOrderMismatch ? 1 : 0,
+            },
+          });
+        } else {
+          existing.data(
+            'historicalOrderMismatch',
+            e.historicalOrderMismatch ? 1 : 0,
+          );
         }
       }
     });
@@ -369,50 +511,68 @@
     c.nodes(':parent').ungrabify();
     c.nodes().not(':parent').grabify();
     compoundGroupCount = c.nodes(':parent').length;
+    historicalOrderMismatchEdgeCount = c.edges(
+      '[historicalOrderMismatch = 1]',
+    ).length;
     rootOverlapCount = countRootUnitOverlaps(c);
+    applyZoomRenderScale(c);
 
     runLayout(
       oldPos.size === 0,
       focusId,
       focusId === undefined ? undefined : oldPos.get(focusId),
       oldPos,
+      collapseSnapshot,
+      collapsedId,
     );
-    scheduleInfoButtons();
+    if (collapsedId !== undefined) {
+      expansionSnapshots.delete(collapsedId);
+    }
+    scheduleRenderDiagnostics();
   }
 
-  /** Keep accessible DOM detail buttons pinned inside canvas-rendered nodes. */
-  function updateInfoButtons(): void {
-    infoButtonFrame = 0;
+  function updateRenderDiagnostics(): void {
+    renderDiagnosticsFrame = 0;
     const c = cy;
-    if (!c) {
-      infoButtons = [];
-      return;
-    }
+    if (!c) return;
     compoundGroupCount = c.nodes(':parent').length;
-    verticalOrderViolationCount = countVerticalDependencyOrderViolations(
-      currentLeafPositions(c),
-      currentVisibleEdges(c),
-      verticalSeparation(c),
-    );
-    infoButtons = c.nodes().map((node: cytoscape.NodeSingular) => {
+    rootOverlapCount = renderedBlockOverlapCount(c);
+    const positions = currentLeafPositions(c);
+    const edges = currentVisibleEdges(c);
+    const separation = verticalSeparation(c);
+    const violations = edges.filter((edge) => {
+      const prerequisite = positions.get(edge.from);
+      const dependent = positions.get(edge.to);
+      return prerequisite !== undefined && dependent !== undefined &&
+        dependent.y + 0.01 < prerequisite.y + separation(edge);
+    });
+    verticalOrderViolationCount = violations.length;
+    verticalOrderViolationEdges = violations.map((edge) => `${edge.from}->${edge.to}`).join(',');
+    nodeDiagnostics = c.nodes().map((node) => {
       const box = node.renderedBoundingBox({ includeLabels: false, includeOverlays: false });
+      // Expanded compound positions are derived Cytoscape presentation bounds;
+      // the pre-expansion anchor is the authoritative parent-local model
+      // coordinate and avoids leaking sub-ulp renderer rounding into state.
+      const authoritativePoint = canonicalGroupAnchors.get(node.id());
       return {
         id: node.id(),
         label: String(node.data('label')).split('\n')[0],
-        left: box.x2 - 12,
-        top: box.y1 + 12,
-        nodeCenterX: (box.x1 + box.x2) / 2,
-        nodeCenterY: (box.y1 + box.y2) / 2,
-        modelX: node.position().x,
-        modelY: node.position().y,
+        centerX: (box.x1 + box.x2) / 2,
+        centerY: (box.y1 + box.y2) / 2,
+        width: box.w,
+        height: box.h,
+        modelX: authoritativePoint?.x ?? node.position().x,
+        modelY: authoritativePoint?.y ?? node.position().y,
+        actualModelX: node.position().x,
+        actualModelY: node.position().y,
         modelHeight: node.outerHeight(),
       };
     });
   }
 
-  function scheduleInfoButtons(): void {
-    if (infoButtonFrame !== 0) return;
-    infoButtonFrame = requestAnimationFrame(updateInfoButtons);
+  function scheduleRenderDiagnostics(): void {
+    if (renderDiagnosticsFrame !== 0) return;
+    renderDiagnosticsFrame = requestAnimationFrame(updateRenderDiagnostics);
   }
 
   // ---- Maturity-band background ------------------------------------------
@@ -426,6 +586,8 @@
     level: MaturityLevel;
     top: number;
     height: number;
+    modelTop: number;
+    modelHeight: number;
     label: string;
     color: string;
     count: number;
@@ -454,6 +616,8 @@
         level,
         top: rect.y1 * zoom + pan.y,
         height: (rect.y2 - rect.y1) * zoom,
+        modelTop: rect.y1,
+        modelHeight: rect.y2 - rect.y1,
         label: maturityBandLabel(level),
         color: level.color,
         count: rect.count,
@@ -562,6 +726,128 @@
     return rootUnitOverlapPairs(c, gap).length;
   }
 
+  function renderedBlockOverlapCount(c: cytoscape.Core, gap = 18): number {
+    return nonContainmentOverlapCount(
+      c.nodes().map((node: cytoscape.NodeSingular) => {
+        const box = node.renderedBoundingBox({ includeLabels: true, includeOverlays: false });
+        const parent = node.parent();
+        return {
+          id: node.id(),
+          ...(parent.empty() ? {} : { parentId: parent[0].id() }),
+          x1: box.x1,
+          y1: box.y1,
+          x2: box.x2,
+          y2: box.y2,
+        };
+      }),
+      gap,
+    );
+  }
+
+  /** Measure the real Cytoscape compound geometry without presenting a frame. */
+  function isFeasibleAtZoom(c: cytoscape.Core, zoom: number): boolean {
+    const originalZoom = c.zoom();
+    const originalPan = { ...c.pan() };
+    const originalMaximumZoom = c.maxZoom();
+    measuringZoom = true;
+    c.maxZoom(Math.max(originalMaximumZoom, zoom));
+    c.zoom(zoom);
+    applyZoomRenderScale(c);
+    const feasible = renderedBlockOverlapCount(c) === 0 &&
+      countVerticalDependencyOrderViolations(
+        currentLeafPositions(c),
+        currentVisibleEdges(c),
+        verticalSeparation(c),
+      ) === 0;
+    c.viewport({ zoom: originalZoom, pan: originalPan });
+    c.maxZoom(originalMaximumZoom);
+    applyZoomRenderScale(c);
+    measuringZoom = false;
+    return feasible;
+  }
+
+  function requiredZoomForCurrentGeometry(c: cytoscape.Core): number | null {
+    return minimumFeasibleZoom(
+      (zoom) => isFeasibleAtZoom(c, zoom),
+      { startZoom: c.zoom(), maximumZoom: Math.max(64, c.zoom()) },
+    );
+  }
+
+  function reconcileEffectiveExpansions(): void {
+    const c = cy;
+    if (!c || measuringZoom || animatingExpansionZoom) return;
+    const parents = new Map(
+      graph.nodes
+        .filter((node) => node.isGroup)
+        .map((node) => [node.id, node.parent] as const),
+    );
+    const next = feasibleRequestedGroups(
+      new Set(expanded),
+      effectiveExpanded,
+      requiredExpansionZoom,
+      c.zoom(),
+      parents,
+    );
+    if (
+      next.size === effectiveExpanded.size &&
+      [...next].every((id) => effectiveExpanded.has(id))
+    ) return;
+    effectiveExpanded = next;
+    onEffectiveExpanded(new Set(next));
+  }
+
+  function scheduleFeasibilityReconcile(): void {
+    if (feasibilityFrame !== 0) return;
+    feasibilityFrame = requestAnimationFrame(() => {
+      feasibilityFrame = 0;
+      reconcileEffectiveExpansions();
+    });
+  }
+
+  function animateToRequiredZoom(
+    c: cytoscape.Core,
+    requiredZoom: number,
+    anchor: cytoscape.Position,
+    targetBox: BBox,
+  ): void {
+    if (requiredZoom <= c.zoom() + 1e-4) return;
+    const renderedAnchor = {
+      x: anchor.x * c.zoom() + c.pan().x,
+      y: anchor.y * c.zoom() + c.pan().y,
+    };
+    const pan = {
+      x: renderedAnchor.x - anchor.x * requiredZoom,
+      y: renderedAnchor.y - anchor.y * requiredZoom,
+    };
+    const renderedWidth = (targetBox.x2 - targetBox.x1) * requiredZoom;
+    const renderedHeight = (targetBox.y2 - targetBox.y1) * requiredZoom;
+    if (renderedWidth <= c.width() - 2 * FIT_PADDING) {
+      pan.x = Math.max(
+        FIT_PADDING - targetBox.x1 * requiredZoom,
+        Math.min(pan.x, c.width() - FIT_PADDING - targetBox.x2 * requiredZoom),
+      );
+    }
+    if (renderedHeight <= c.height() - 2 * FIT_PADDING) {
+      pan.y = Math.max(
+        FIT_PADDING - targetBox.y1 * requiredZoom,
+        Math.min(pan.y, c.height() - FIT_PADDING - targetBox.y2 * requiredZoom),
+      );
+    }
+    c.maxZoom(Math.max(c.maxZoom(), requiredZoom * 1.25));
+    animatingExpansionZoom = true;
+    c.animate(
+      { zoom: requiredZoom, pan },
+      {
+        duration: LAYOUT_MS,
+        easing: 'ease-in-out-cubic',
+        complete: () => {
+          animatingExpansionZoom = false;
+          reconcileEffectiveExpansions();
+        },
+      },
+    );
+  }
+
   function resolveRootUnitOverlaps(
     c: cytoscape.Core,
     targets: Map<string, cytoscape.Position>,
@@ -641,7 +927,11 @@
   function saveGroupLayout(groupId: string): void {
     const group = cy?.getElementById(groupId);
     if (!group?.nonempty() || !group.isParent()) return;
-    const saved = captureLocalLayout(group.position().x, focusedNodeBoxes(group), bandModelRects);
+    // Cytoscape derives a compound's presentation center from child and label
+    // bounds. It is never an authoritative coordinate and must not leak into
+    // the one canonical parent-local child layout.
+    const anchor = canonicalGroupAnchors.get(groupId) ?? group.position();
+    const saved = captureParentLocalLayout(anchor, focusedNodeBoxes(group));
     if (saved.size === 0) return;
     savedGroupLayouts.set(groupId, saved);
     savedLayoutNodeCount = saved.size;
@@ -656,7 +946,7 @@
     });
     rootOverlapCount = resolveRootUnitOverlaps(c, targets, anchoredRootId);
     layoutBounds = targetBBox(c, targets);
-    scheduleInfoButtons();
+    scheduleRenderDiagnostics();
   }
 
   function allVisibleNodeBoxes(): Array<{
@@ -759,22 +1049,30 @@
     nodes.positions((node) => targets.get(node.id()) ?? node.position());
   }
 
-  /** Restore an expanded compound's horizontal anchor after child collision resolution. */
-  function anchorFocusedGroupX(
+  /** Restore an expanded compound's exact pre-expansion center. */
+  function anchorFocusedGroup(
     focusNode: cytoscape.NodeSingular,
-    anchorX: number,
+    anchor: cytoscape.Position,
     targets: Map<string, cytoscape.Position>,
   ): void {
     const descendants = focusNode.descendants().not(':parent');
     descendants.positions((node) => targets.get(node.id()) ?? node.position());
-    const dx = anchorX - focusNode.position().x;
-    if (Math.abs(dx) <= 1e-6) return;
-    descendants.forEach((leaf: cytoscape.NodeSingular) => {
-      const point = targets.get(leaf.id()) ?? leaf.position();
-      const anchored = { x: point.x + dx, y: point.y };
-      leaf.position(anchored);
-      targets.set(leaf.id(), anchored);
-    });
+    // Compound centers are derived presentation output. Iterate the inverse
+    // translation down to exact floating-point equality so the authoritative
+    // parent anchor never changes through visibility/camera operations.
+    for (let pass = 0; pass < 4; pass++) {
+      focusNode.cy().forceRender();
+      focusNode.boundingBox({ includeLabels: true, includeOverlays: false });
+      const dx = anchor.x - focusNode.position().x;
+      const dy = anchor.y - focusNode.position().y;
+      if (dx === 0 && dy === 0) return;
+      descendants.forEach((leaf: cytoscape.NodeSingular) => {
+        const point = targets.get(leaf.id()) ?? leaf.position();
+        const anchored = { x: point.x + dx, y: point.y + dy };
+        leaf.position(anchored);
+        targets.set(leaf.id(), anchored);
+      });
+    }
   }
 
   function deriveBandsFromVisibleNodes(anchoredNodeId?: string): void {
@@ -798,7 +1096,7 @@
       }
     }
     updateBandStripes();
-    scheduleInfoButtons();
+    scheduleRenderDiagnostics();
   }
 
   function movePeersFromDraggedNode(node: cytoscape.NodeSingular): void {
@@ -831,68 +1129,186 @@
     );
   }
 
-  function requiredFocusedBandHeights(
-    focusNode: cytoscape.NodeSingular,
-    gap = 8,
-  ): Map<number, number> {
-    const required = new Map<number, number>();
-    for (let band = 0; band < bandModelRects.length; band++) {
-      const members = focusNode.descendants().not(':parent').filter(
-        (node) => (bandAssignments.get(node.id()) ?? 0) === band,
-      );
-      if (members.length === 0) continue;
-      const columns = Math.min(2, members.length);
-      const rows = Math.ceil(members.length / columns);
-      const cellHeight = Math.max(...members.map((node) => node.outerHeight())) + gap;
-      required.set(band, rows * cellHeight - gap + 32);
-    }
-    return required;
-  }
-
-  /** Pack focused descendants tightly around the collapsed group's x anchor. */
+  /** Recursive TB layout for direct child units, centered in parent coordinates. */
   function packFocusedDescendants(
     focusNode: cytoscape.NodeSingular,
-    anchorX: number,
+    anchor: cytoscape.Position,
     targets: Map<string, cytoscape.Position>,
-    gap = 8,
   ): void {
-    const descendants = focusNode.descendants().not(':parent');
-    for (let bandIndex = 0; bandIndex < bandModelRects.length; bandIndex++) {
-      const band = bandModelRects[bandIndex];
-      const members = descendants
-        .filter((node) => (bandAssignments.get(node.id()) ?? 0) === bandIndex)
-        .toArray() as cytoscape.NodeSingular[];
-      members.sort((a, b) => {
-          const ap = targets.get(a.id()) ?? a.position();
-          const bp = targets.get(b.id()) ?? b.position();
-          return ap.y - bp.y || ap.x - bp.x || a.id().localeCompare(b.id());
-        });
-      if (members.length === 0) continue;
+    const directChildren = focusNode.children().toArray() as cytoscape.NodeSingular[];
+    if (directChildren.length === 0) return;
 
-      const columns = Math.min(2, members.length);
+    // Layout nested scopes first so each subgroup is a measured rigid unit in
+    // its parent's layout rather than flattening nested descendants.
+    for (const child of directChildren) {
+      if (child.isParent()) packFocusedDescendants(child, child.position(), targets);
+    }
+
+    const unitByDescendant = new Map<string, string>();
+    for (const unit of directChildren) {
+      unitByDescendant.set(unit.id(), unit.id());
+      unit.descendants().forEach((node) => {
+        unitByDescendant.set(node.id(), unit.id());
+      });
+    }
+    const unitEdges = currentVisibleEdges(focusNode.cy()).flatMap((edge) => {
+      const from = unitByDescendant.get(edge.from);
+      const to = unitByDescendant.get(edge.to);
+      return from === undefined || to === undefined || from === to ? [] : [{ from, to }];
+    });
+    const ranks = dependencyRanks(directChildren.map((node) => node.id()), unitEdges);
+    const byRank = new Map<number, cytoscape.NodeSingular[]>();
+    for (const unit of directChildren) {
+      const rank = ranks.get(unit.id()) ?? 0;
+      const members = byRank.get(rank) ?? [];
+      members.push(unit);
+      byRank.set(rank, members);
+    }
+
+    // Barycentric ordering is Dagre's essential crossing-reduction step. Use
+    // the current stable x order as the deterministic tie-breaker.
+    const orderedRanks = [...byRank.entries()].sort(([a], [b]) => a - b);
+    const previousOrder = new Map<string, number>();
+    for (const [, members] of orderedRanks) {
+      members.sort((a, b) => a.position().x - b.position().x || a.id().localeCompare(b.id()));
+      members.sort((a, b) => {
+        const barycenter = (id: string): number => {
+          const predecessors = unitEdges
+            .filter((edge) => edge.to === id)
+            .flatMap((edge) => previousOrder.get(edge.from) ?? []);
+          return predecessors.length === 0
+            ? Number.POSITIVE_INFINITY
+            : predecessors.reduce((sum, value) => sum + value, 0) / predecessors.length;
+        };
+        return barycenter(a.id()) - barycenter(b.id()) || a.id().localeCompare(b.id());
+      });
+      members.forEach((member, index) => previousOrder.set(member.id(), index));
+    }
+
+    const gap = 14;
+    const rankGap = 28;
+    const layouts = orderedRanks.map(([rank, members]) => {
+      const columns = Math.min(3, Math.max(1, Math.ceil(Math.sqrt(members.length))));
       const rows = Math.ceil(members.length / columns);
       const cellWidth = Math.max(...members.map((node) => node.outerWidth())) + gap;
       const cellHeight = Math.max(...members.map((node) => node.outerHeight())) + gap;
-      const contentHeight = rows * cellHeight - gap;
-      const firstY = (band.y1 + band.y2 - contentHeight) / 2 + (cellHeight - gap) / 2;
+      return { rank, members, columns, rows, cellWidth, cellHeight, height: rows * cellHeight - gap };
+    });
+    const totalHeight = layouts.reduce((sum, rank) => sum + rank.height, 0) +
+      Math.max(0, layouts.length - 1) * rankGap;
+    let rankTop = anchor.y - totalHeight / 2;
 
-      for (let row = 0; row < rows; row++) {
-        const rowMembers = members.slice(row * columns, (row + 1) * columns);
-        const rowWidth = rowMembers.length * cellWidth - gap;
-        const firstX = anchorX - rowWidth / 2 + (cellWidth - gap) / 2;
-        rowMembers.forEach((node, column) => {
-          targets.set(node.id(), {
-            x: firstX + column * cellWidth,
-            y: clampPointToMaturityBand(
-              { x: anchorX, y: firstY + row * cellHeight },
-              band,
-              node.outerHeight(),
-              7,
-            ).y,
-          });
-        });
+    const moveUnit = (unit: cytoscape.NodeSingular, point: cytoscape.Position): void => {
+      const leaves = unit.isParent() ? unit.descendants().not(':parent') : unit;
+      const dx = point.x - unit.position().x;
+      const dy = point.y - unit.position().y;
+      leaves.forEach((leaf: cytoscape.NodeSingular) => {
+        const current = targets.get(leaf.id()) ?? leaf.position();
+        const moved = { x: current.x + dx, y: current.y + dy };
+        targets.set(leaf.id(), moved);
+        leaf.position(moved);
+      });
+    };
+    for (const rank of layouts) {
+      for (let row = 0; row < rank.rows; row++) {
+        const members = rank.members.slice(row * rank.columns, (row + 1) * rank.columns);
+        const rowWidth = members.length * rank.cellWidth - gap;
+        const firstX = anchor.x - rowWidth / 2 + (rank.cellWidth - gap) / 2;
+        members.forEach((unit, column) => moveUnit(unit, {
+          x: firstX + column * rank.cellWidth,
+          y: rankTop + row * rank.cellHeight + (rank.cellHeight - gap) / 2,
+        }));
       }
+      rankTop += rank.height + rankGap;
     }
+  }
+
+  /**
+   * Express a recursive child layout in the collapsed group's local coordinate
+   * system. The uniform factor is derived from the actual collapsed footprint,
+   * never a fixed compression constant. At higher camera zoom the centers
+   * spread while nominal-size boxes remain readable.
+   */
+  function fitFocusedCentersToSafeNeighborhood(
+    focusNode: cytoscape.NodeSingular,
+    anchor: cytoscape.Position,
+    targets: Map<string, cytoscape.Position>,
+    collapsedBounds: BBox | undefined,
+  ): number {
+    if (collapsedBounds === undefined) return 1;
+    const descendants = focusNode.descendants().not(':parent');
+    if (descendants.length < 2) return 1;
+    const points = descendants.map((node: cytoscape.NodeSingular) =>
+      targets.get(node.id()) ?? node.position(),
+    );
+    const spanX = Math.max(...points.map((point) => point.x)) -
+      Math.min(...points.map((point) => point.x));
+    const spanY = Math.max(...points.map((point) => point.y)) -
+      Math.min(...points.map((point) => point.y));
+    const availableWidth = Math.max(0, collapsedBounds.x2 - collapsedBounds.x1);
+    const availableHeight = Math.max(0, collapsedBounds.y2 - collapsedBounds.y1);
+    const collapsedScale = Math.min(
+      1,
+      spanX <= 1e-6 ? 1 : availableWidth / spanX,
+      spanY <= 1e-6 ? 1 : availableHeight / spanY,
+    );
+    const baseOffsets = new Map(descendants.map((node: cytoscape.NodeSingular) => {
+      const point = targets.get(node.id()) ?? node.position();
+      return [node.id(), { x: point.x - anchor.x, y: point.y - anchor.y }] as const;
+    }));
+    const applyScale = (scale: number): void => {
+      descendants.forEach((node: cytoscape.NodeSingular) => {
+        const offset = baseOffsets.get(node.id())!;
+        const fitted = {
+          x: anchor.x + offset.x * scale,
+          y: anchor.y + offset.y * scale,
+        };
+        targets.set(node.id(), fitted);
+        node.position(fitted);
+      });
+      anchorFocusedGroup(focusNode, anchor, targets);
+    };
+
+    // Search the real fixed neighborhood rather than assuming the collapsed
+    // box is the only available space. Required zoom generally falls as local
+    // scale grows, until descendants approach an exterior center. Choose the
+    // lowest collision-free camera threshold, preferring the largest uniform
+    // transform when thresholds are effectively equal.
+    let bestScale = collapsedScale;
+    let bestZoom = Number.POSITIVE_INFINITY;
+    let bestPositions = new Map<string, cytoscape.Position>();
+    const evaluate = (scale: number): void => {
+      applyScale(scale);
+      const zoom = requiredZoomForCurrentGeometry(focusNode.cy());
+      if (zoom === null) return;
+      if (zoom < bestZoom - 1e-3 || (Math.abs(zoom - bestZoom) <= 1e-3 && scale > bestScale)) {
+        bestScale = scale;
+        bestZoom = zoom;
+        bestPositions = new Map(
+          descendants.map((node: cytoscape.NodeSingular) => [
+            node.id(),
+            { ...(targets.get(node.id()) ?? node.position()) },
+          ]),
+        );
+      }
+    };
+    const steps = 16;
+    for (let index = 0; index <= steps; index++) {
+      evaluate(collapsedScale + (1 - collapsedScale) * index / steps);
+    }
+    if (bestPositions.size === 0) {
+      applyScale(collapsedScale);
+      bestScale = collapsedScale;
+    } else {
+      bestPositions.forEach((point, id) => {
+        targets.set(id, point);
+        focusNode.cy().getElementById(id).position(point);
+      });
+      anchorFocusedGroup(focusNode, anchor, targets);
+    }
+    focusLocalCoordinateScale = bestScale;
+    focusRequiredZoom = Number.isFinite(bestZoom) ? bestZoom : focusNode.cy().zoom();
+    return bestScale;
   }
 
   /** Fit a model bbox and derive usable zoom limits from that fitted scale. */
@@ -903,6 +1319,7 @@
     animated: boolean,
     minimumZoom = 0,
     zoomExtent: BBox = bbox,
+    maximumZoom = Number.POSITIVE_INFINITY,
   ): void {
     const viewport = viewportFor(bbox, size, FIT_PADDING);
     if (viewport.zoom < minimumZoom) {
@@ -910,6 +1327,13 @@
       viewport.pan = {
         x: size.width / 2 - minimumZoom * (bbox.x1 + bbox.x2) / 2,
         y: FIT_PADDING - minimumZoom * bbox.y1,
+      };
+    }
+    if (viewport.zoom > maximumZoom) {
+      viewport.zoom = maximumZoom;
+      viewport.pan = {
+        x: size.width / 2 - maximumZoom * (bbox.x1 + bbox.x2) / 2,
+        y: size.height / 2 - maximumZoom * (bbox.y1 + bbox.y2) / 2,
       };
     }
     const wholeGraphFit = viewportFor(zoomExtent, size, FIT_PADDING).zoom;
@@ -946,6 +1370,8 @@
     focusId?: string,
     focusAnchor?: cytoscape.Position,
     previousPositions?: ReadonlyMap<string, cytoscape.Position>,
+    collapseSnapshot?: ExpansionCameraSnapshot,
+    collapsedId?: string,
   ): void {
     const c = cy;
     if (!c || c.nodes().length === 0) return;
@@ -960,16 +1386,57 @@
     layoutNodes.forEach((node) => {
       snapshot.set(node.id(), { ...node.position() });
     });
-    c.nodes().removeClass('focus-group focus-child');
     const styledFocusNode = focusId === undefined ? undefined : c.getElementById(focusId);
-    if (styledFocusNode?.nonempty() && styledFocusNode.isParent()) {
-      styledFocusNode.addClass('focus-group');
-      styledFocusNode.descendants().not(':parent').addClass('focus-child');
+
+    // Closing a group is the inverse of opening it, not a request for a new
+    // global Dagre layout. Restore the exact pre-expansion geometry unless the
+    // user deliberately rearranged the graph while the group was open.
+    if (!first && collapseSnapshot !== undefined) {
+      const targets = new Map<string, cytoscape.Position>();
+      layoutNodes.forEach((node) => {
+        targets.set(node.id(), node.position());
+      });
+      if (collapsedId !== undefined) {
+        const anchor = canonicalGroupAnchors.get(collapsedId);
+        if (anchor !== undefined) {
+          targets.set(collapsedId, anchor);
+          c.getElementById(collapsedId).position(anchor);
+        }
+      }
+      bandModelRects = bandModelRects.map((band) => ({
+        ...band,
+        count: layoutNodes.filter(
+          (node) => (bandAssignments.get(node.id()) ?? 0) === band.band,
+        ).length,
+      }));
+      layoutBounds = targetBBox(c, targets);
+      layoutNodes.positions((node) => targets.get(node.id()) ?? node.position());
+      scheduleRenderDiagnostics();
+      layoutNodes.grabify();
+      if (!collapseSnapshot.cameraChanged) {
+        const wholeGraphFit = viewportFor(layoutBounds, size, FIT_PADDING).zoom;
+        const bounds = zoomBoundsFor(wholeGraphFit);
+        c.minZoom(Math.min(bounds.min, c.zoom(), collapseSnapshot.zoom));
+        c.maxZoom(Math.max(bounds.max, c.zoom(), collapseSnapshot.zoom));
+        c.animate(
+          { zoom: collapseSnapshot.zoom, pan: collapseSnapshot.pan },
+          {
+            duration: LAYOUT_MS,
+            easing: 'ease-in-out-cubic',
+            complete: () => {
+              c.viewport({ zoom: collapseSnapshot.zoom, pan: collapseSnapshot.pan });
+              c.minZoom(bounds.min);
+              c.maxZoom(bounds.max);
+            },
+          },
+        );
+      }
+      return;
     }
 
-    // Opening one group is a local semantic-zoom operation. Existing graph
-    // blocks keep their exact model positions; only newly revealed descendants
-    // receive local positions inside the anchored containing group.
+    // Opening one group is a local reveal. Existing graph blocks keep their
+    // exact model positions; only newly revealed descendants receive local
+    // positions inside the anchored containing group.
     if (
       !first &&
       styledFocusNode?.nonempty() &&
@@ -982,34 +1449,21 @@
       layoutNodes.forEach((node) => {
         targets.set(node.id(), previousPositions.get(node.id()) ?? node.position());
       });
-      const previousBands = bandModelRects;
-      bandModelRects = expandMaturityBandRects(
-        bandModelRects,
-        requiredFocusedBandHeights(styledFocusNode),
-      );
-      layoutNodes.forEach((node) => {
-        const band = bandAssignments.get(node.id()) ?? 0;
-        const before = previousBands[band];
-        const after = bandModelRects[band];
-        const point = targets.get(node.id());
-        if (before !== undefined && after !== undefined && point !== undefined) {
-          targets.set(node.id(), { x: point.x, y: point.y + after.y1 - before.y1 });
-        }
-      });
       const saved = savedGroupLayouts.get(styledFocusNode.id());
       const restored = saved === undefined
         ? new Map<string, cytoscape.Position>()
-        : restoreLocalLayout(
-            focusAnchor.x,
-            saved,
-            focusedNodeBoxes(styledFocusNode),
-            bandModelRects,
-          );
+        : restoreParentLocalLayout(focusAnchor, saved);
       restoredLayoutNodeCount = restored.size;
       if (restored.size > 0) {
         restored.forEach((point, id) => targets.set(id, point));
       } else {
-        packFocusedDescendants(styledFocusNode, focusAnchor.x, targets);
+        packFocusedDescendants(styledFocusNode, focusAnchor, targets);
+        fitFocusedCentersToSafeNeighborhood(
+          styledFocusNode,
+          focusAnchor,
+          targets,
+          collapsedGroupFootprints.get(styledFocusNode.id()),
+        );
       }
       const newlyVisibleIds = new Set(
         layoutNodes
@@ -1021,11 +1475,8 @@
       // the same child drag would be counted twice on close/reopen.
       if (saved === undefined) restoreUserPositions(layoutNodes, targets, newlyVisibleIds);
       layoutNodes.positions((node) => targets.get(node.id()) ?? node.position());
-      anchorFocusedGroupX(styledFocusNode, focusAnchor.x, targets);
-      enforceVerticalOrderForTargets(layoutNodes, targets);
-      anchorFocusedGroupX(styledFocusNode, focusAnchor.x, targets);
-      deriveBandsForTargets(layoutNodes, targets);
-      rootOverlapCount = resolveRootUnitOverlaps(c, targets, focusId);
+      if (saved === undefined) anchorFocusedGroup(styledFocusNode, focusAnchor, targets);
+      rootOverlapCount = countRootUnitOverlaps(c);
       bandModelRects = bandModelRects.map((rect) => ({
         ...rect,
         count: layoutNodes.filter(
@@ -1033,7 +1484,10 @@
         ).length,
       }));
       layoutBounds = targetBBox(c, targets);
-      focusAnchorDeltaX = Math.abs(styledFocusNode.position().x - focusAnchor.x);
+      focusAnchorDeltaX = Math.hypot(
+        styledFocusNode.position().x - focusAnchor.x,
+        styledFocusNode.position().y - focusAnchor.y,
+      );
       surroundingPositionDrift = Math.max(
         0,
         ...layoutNodes
@@ -1046,33 +1500,45 @@
               : Math.hypot(after.x - before.x, after.y - before.y);
           }),
       );
-      const focusBox = styledFocusNode.boundingBox({
+      const measuredRequiredZoom = requiredZoomForCurrentGeometry(c);
+      // Zoom feasibility probes temporarily restyle compound nodes. Cytoscape
+      // may round the compound's derived bounds while doing so, so restore the
+      // exact pre-expansion center once more before committing animation
+      // targets. No exterior target is changed by this correction.
+      if (saved === undefined) anchorFocusedGroup(styledFocusNode, focusAnchor, targets);
+      layoutBounds = targetBBox(c, targets);
+      focusAnchorDeltaX = Math.hypot(
+        styledFocusNode.position().x - focusAnchor.x,
+        styledFocusNode.position().y - focusAnchor.y,
+      );
+      const requiredZoom = measuredRequiredZoom === null
+        ? Number.POSITIVE_INFINITY
+        : measuredRequiredZoom <= c.zoom() + 1e-4
+          ? measuredRequiredZoom
+          : measuredRequiredZoom * 1.002;
+      requiredExpansionZoom.set(styledFocusNode.id(), requiredZoom);
+      const focusTargetBox = styledFocusNode.boundingBox({
         includeLabels: true,
         includeOverlays: false,
       });
-      const viewportBounds = {
-        x1: focusBox.x1 - 40,
-        y1: focusBox.y1 - 40,
-        x2: focusBox.x2 + 40,
-        y2: focusBox.y2 + 40,
-      };
 
-      layoutNodes.forEach((node) => {
-        const point = snapshot.get(node.id());
-        if (point) node.position(point);
-      });
-      const preset = layoutNodes.layout({
-        name: 'preset',
-        positions: (node: cytoscape.NodeSingular) => targets.get(node.id()) ?? node.position(),
-        animate: true,
-        animationDuration: LAYOUT_MS,
-        animationEasing: 'ease-in-out-cubic',
-        fit: false,
-      } as unknown as cytoscape.LayoutOptions);
-      runningLayout = preset;
-      preset.run();
+      // Visibility changes are atomic. Children are revealed directly at their
+      // one canonical parent-local positions; only the camera animates.
+      layoutNodes.positions((node) => targets.get(node.id()) ?? node.position());
       layoutNodes.grabify();
-      animateViewport(c, viewportBounds, size, true, 0.9, layoutBounds);
+      // Expansion changes no exterior model center. Increase global zoom only
+      // when nominal-size blocks need more rendered separation; an impossible
+      // expansion is suppressed while its requested intent remains stored.
+      if (Number.isFinite(requiredZoom)) {
+        animateToRequiredZoom(
+          c,
+          requiredZoom,
+          focusAnchor,
+          focusTargetBox,
+        );
+      } else {
+        scheduleFeasibilityReconcile();
+      }
       return;
     }
 
@@ -1174,17 +1640,23 @@
     );
     compacted.forEach((point, id) => targets.set(id, point));
     if (styledFocusNode?.nonempty() && focusAnchor !== undefined && styledFocusNode.isParent()) {
-      packFocusedDescendants(styledFocusNode, focusAnchor.x, targets);
+      packFocusedDescendants(styledFocusNode, focusAnchor, targets);
+      fitFocusedCentersToSafeNeighborhood(
+        styledFocusNode,
+        focusAnchor,
+        targets,
+        collapsedGroupFootprints.get(styledFocusNode.id()),
+      );
     }
     restoreUserPositions(layoutNodes, targets);
     layoutNodes.positions((node) => targets.get(node.id()) ?? node.position());
     const focusNode = focusId === undefined ? undefined : c.getElementById(focusId);
     if (focusNode?.nonempty() && focusAnchor !== undefined && focusNode.isParent()) {
-      anchorFocusedGroupX(focusNode, focusAnchor.x, targets);
+      anchorFocusedGroup(focusNode, focusAnchor, targets);
     }
     enforceVerticalOrderForTargets(layoutNodes, targets);
     if (focusNode?.nonempty() && focusAnchor !== undefined && focusNode.isParent()) {
-      anchorFocusedGroupX(focusNode, focusAnchor.x, targets);
+      anchorFocusedGroup(focusNode, focusAnchor, targets);
     }
     deriveBandsForTargets(layoutNodes, targets);
     rootOverlapCount = resolveRootUnitOverlaps(
@@ -1211,7 +1683,15 @@
 
     if (first) {
       layoutNodes.positions((node) => targets.get(node.id()) ?? node.position());
-      animateViewport(c, viewportBounds, size, false, focusBox ? 0.9 : 0.75, layoutBounds);
+      animateViewport(
+        c,
+        viewportBounds,
+        size,
+        false,
+        focusBox ? 0 : 0.75,
+        layoutBounds,
+        focusBox ? c.zoom() : Number.POSITIVE_INFINITY,
+      );
       updateBandStripes();
       return;
     }
@@ -1231,7 +1711,15 @@
     runningLayout = preset;
     preset.run();
     layoutNodes.grabify();
-    animateViewport(c, viewportBounds, size, true, focusBox ? 0.9 : 0.75, layoutBounds);
+    animateViewport(
+      c,
+      viewportBounds,
+      size,
+      true,
+      focusBox ? 0 : 0.75,
+      layoutBounds,
+      focusBox ? c.zoom() : Number.POSITIVE_INFINITY,
+    );
   }
 
   // ---- Drag springs --------------------------------------------------------
@@ -1243,6 +1731,9 @@
   let dragFrameId = 0;
   let settleFrameId = 0;
   let dragPending = false;
+  let grabbedNodeId: string | undefined;
+  let grabbedStart: cytoscape.Position | undefined;
+  let grabbedNodeMoved = false;
   let prefersReducedMotion = false;
 
   function visibleUpstreamIds(c: cytoscape.Core, nodeId: string): Set<string> {
@@ -1445,15 +1936,13 @@
     if (!c) return;
     c.batch(() => {
       c.elements().removeClass('picked hilite faded');
-      const repId = selectedId === null ? null : representativeOf(byId, expanded, selectedId);
+      const repId = selectedId === null ? null : representativeOf(byId, effectiveExpanded, selectedId);
       if (repId === null) return;
       const node = c.getElementById(repId);
       if (node.empty()) return;
-      const hood = node.closedNeighborhood();
-      c.elements().not(hood).addClass('faded');
-      hood.addClass('hilite');
-      node.removeClass('hilite').addClass('picked');
+      node.addClass('picked');
     });
+    applyZoomRenderScale(c);
   }
 
   // ---- Cytoscape stylesheet ------------------------------------------------
@@ -1484,15 +1973,6 @@
       } as never,
     },
     {
-      selector: 'node[halo]',
-      style: {
-        'underlay-color': 'data(halo)',
-        'underlay-opacity': 0.22,
-        'underlay-padding': 5,
-        'underlay-shape': 'round-rectangle',
-      } as never,
-    },
-    {
       selector: 'node[kind = "group"][expanded = 0]',
       style: {
         padding: '20px',
@@ -1520,29 +2000,12 @@
         'text-valign': 'top',
         'text-halign': 'center',
         'text-margin-y': 16,
-        'compound-sizing-wrt-labels': 'include',
+        // Compound geometry belongs to its descendants. Including a long,
+        // wrapped title here makes Cytoscape recompute and shift the compound
+        // bounds as inverse-zoom font metrics round between animation frames.
+        'compound-sizing-wrt-labels': 'exclude',
         'text-max-width': '210',
         'line-height': 1.25,
-      } as never,
-    },
-    {
-      selector: 'node.focus-child',
-      style: {
-        padding: '5px',
-        'font-size': 8,
-        'text-max-width': '82',
-        'border-width': 1,
-        'underlay-padding': 2,
-      } as never,
-    },
-    {
-      selector: 'node.focus-group',
-      style: {
-        padding: '12px',
-        'font-size': 8,
-        'text-margin-y': 6,
-        'text-max-width': '110',
-        'border-width': 1.25,
       } as never,
     },
     {
@@ -1558,17 +2021,25 @@
         'transition-duration': 150,
       } as never,
     },
-    { selector: '.faded', style: { opacity: 0.15 } as never },
-    { selector: 'node.hover', style: { 'border-width': 3 } as never },
-    { selector: 'node.hilite', style: { 'border-width': 2.5 } as never },
     {
-      selector: 'edge.hilite',
-      style: { width: 2.6, 'line-color': '#8a8271', 'target-arrow-color': '#8a8271' } as never,
+      selector: 'edge[historicalOrderMismatch = 1]',
+      style: {
+        'line-style': 'dashed',
+        'line-dash-pattern': [8, 6],
+      } as never,
+    },
+    {
+      selector: 'node.hover',
+      style: {
+        'overlay-color': 'data(border)',
+        'overlay-opacity': 0.08,
+        'overlay-padding': 6,
+        'overlay-shape': 'round-rectangle',
+      } as never,
     },
     {
       selector: 'node.picked',
       style: {
-        'border-width': 3.5,
         'overlay-color': 'data(border)',
         'overlay-opacity': 0.14,
         'overlay-padding': 8,
@@ -1595,41 +2066,103 @@
     });
     cy = c;
 
-    c.on('tap', (e) => {
-      if (e.target === c) onSelect(null);
-    });
-    // Double-click a group to expand it; double-click a child to collapse
-    // its parent group.
-    c.on('dbltap', 'node', (e) => {
-      const id: string = e.target.id();
+    const nodeAtRenderedPoint = (x: number, y: number): cytoscape.NodeSingular | undefined =>
+      c.nodes()
+        .filter((node) => {
+          const box = node.renderedBoundingBox({ includeLabels: true, includeOverlays: false });
+          return x >= box.x1 && x <= box.x2 && y >= box.y1 && y <= box.y2;
+        })
+        .sort((left, right) => {
+          const depth = ancestorsOf(byId, right.id()).length - ancestorsOf(byId, left.id()).length;
+          if (depth !== 0) return depth;
+          const leftBox = left.renderedBoundingBox({ includeLabels: true, includeOverlays: false });
+          const rightBox = right.renderedBoundingBox({ includeLabels: true, includeOverlays: false });
+          return leftBox.w * leftBox.h - rightBox.w * rightBox.h;
+        })[0];
+
+    const toggleTappedGroup = (id: string): void => {
       const n = byId.get(id);
       if (!n) return;
-      // Expansion is a navigation action. Keep the full graph viewport
-      // available instead of leaving the single-node detail panel over it.
-      onSelect(null);
+      onSelect(id);
       if (n.isGroup) onToggleGroup(id);
       else if (n.parent !== undefined) onToggleGroup(n.parent);
-    });
+    };
+    let lastTapTargetId: string | undefined;
+    const handleTap = (event: cytoscape.EventObject): void => {
+      const eventNode = event.target === c || event.target.isNode?.() !== true
+        ? undefined
+        : event.target as cytoscape.NodeSingular;
+      lastTapTargetId = eventNode?.id();
+      const hit = eventNode !== undefined && !eventNode.isParent()
+        ? eventNode
+        : nodeAtRenderedPoint(event.renderedPosition.x, event.renderedPosition.y);
+      if (hit === undefined) return;
+      const id = hit.id();
+      if (pendingTapTimer !== undefined) clearTimeout(pendingTapTimer);
+      pendingTapTimer = setTimeout(() => {
+        pendingTapTimer = undefined;
+        onSelect(id);
+      }, 240);
+    };
+    c.on('tap', handleTap);
+    const handleDoubleClick = (event: MouseEvent): void => {
+      if (pendingTapTimer !== undefined) clearTimeout(pendingTapTimer);
+      pendingTapTimer = undefined;
+      const rect = container.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      const tapped = lastTapTargetId === undefined
+        ? undefined
+        : c.getElementById(lastTapTargetId);
+      const hit = tapped?.nonempty() && tapped.isNode()
+        ? tapped
+        : nodeAtRenderedPoint(x, y);
+      lastTapTargetId = undefined;
+      if (hit !== undefined) toggleTappedGroup(hit.id());
+    };
+    container.addEventListener('dblclick', handleDoubleClick, true);
     c.on('mouseover', 'node', (e) => {
       e.target.addClass('hover');
+      applyZoomRenderScale(c);
       container.style.cursor = 'pointer';
     });
     c.on('mouseout', 'node', (e) => {
       e.target.removeClass('hover');
+      applyZoomRenderScale(c);
       container.style.cursor = '';
     });
     c.on('pan zoom resize', updateBandStripes);
-    c.on('zoom', () => {
-      currentZoom = c.zoom();
+    c.on('pan zoom', (event) => {
+      if (!animatingExpansionZoom && !measuringZoom && event.originalEvent !== undefined) {
+        expansionSnapshots.forEach((snapshot) => {
+          snapshot.cameraChanged = true;
+        });
+      }
     });
-    c.on('render', scheduleInfoButtons);
+    c.on('zoom', () => {
+      if (measuringZoom) return;
+      currentZoom = c.zoom();
+      applyZoomRenderScale(c);
+      scheduleFeasibilityReconcile();
+    });
+    c.on('render', scheduleRenderDiagnostics);
 
     c.on('grab', 'node', (e) => {
+      grabbedNodeId = e.target.id();
+      grabbedStart = { ...e.target.position() };
+      grabbedNodeMoved = false;
       if (prefersReducedMotion) return;
       cancelSprings();
       buildSprings(e.target);
     });
     c.on('drag', 'node', (e) => {
+      if (grabbedNodeId !== e.target.id() || grabbedStart === undefined) return;
+      const draggedDistance = Math.hypot(
+        e.target.position().x - grabbedStart.x,
+        e.target.position().y - grabbedStart.y,
+      );
+      if (!grabbedNodeMoved && draggedDistance < 0.75) return;
+      grabbedNodeMoved = true;
       const point = constrainedPoint(e.target, e.target.position(), true);
       e.target.position(point);
       pushViolatingDependentsDown();
@@ -1640,6 +2173,14 @@
       if (dragFrameId === 0) dragFrameId = requestAnimationFrame(runDragFrame);
     });
     c.on('free', 'node', (e) => {
+      const wasDragged = grabbedNodeId === e.target.id() && grabbedNodeMoved;
+      grabbedNodeId = undefined;
+      grabbedStart = undefined;
+      grabbedNodeMoved = false;
+      if (!wasDragged) {
+        cancelSprings();
+        return;
+      }
       const point = constrainedPoint(e.target, e.target.position(), true);
       e.target.position(point);
       pushViolatingDependentsDown();
@@ -1681,26 +2222,59 @@
 
     return () => {
       resizeObserver.disconnect();
+      container.removeEventListener('dblclick', handleDoubleClick, true);
+      c.off('tap', handleTap);
       if (resizeTimer !== undefined) clearTimeout(resizeTimer);
+      if (pendingTapTimer !== undefined) clearTimeout(pendingTapTimer);
+      pendingTapTimer = undefined;
       cancelSprings();
       userStore?.flush();
-      if (infoButtonFrame !== 0) cancelAnimationFrame(infoButtonFrame);
-      infoButtonFrame = 0;
-      infoButtons = [];
+      if (renderDiagnosticsFrame !== 0) cancelAnimationFrame(renderDiagnosticsFrame);
+      renderDiagnosticsFrame = 0;
+      if (feasibilityFrame !== 0) cancelAnimationFrame(feasibilityFrame);
+      feasibilityFrame = 0;
       c.destroy();
       cy = undefined;
     };
   });
 
-  // Rebuild the visible graph when data or expansion state changes.
+  // Requested intent is persistent. Effective visibility may temporarily be a
+  // subset while the current camera zoom cannot separate expanded compounds.
   $effect(() => {
-    const vis = computeVisible(graph, expanded);
-    const newlyExpanded = [...expanded].filter((id) => !previousExpanded.has(id));
+    const requested = new Set(expanded);
+    for (const id of previousRequestedExpanded) {
+      if (!requested.has(id)) requiredExpansionZoom.delete(id);
+    }
+    const next = new Set(
+      [...effectiveExpanded].filter((id) => requested.has(id)),
+    );
+    for (const id of requested) {
+      if (!previousRequestedExpanded.has(id)) next.add(id);
+    }
+    previousRequestedExpanded = requested;
+    if (
+      next.size !== effectiveExpanded.size ||
+      [...next].some((id) => !effectiveExpanded.has(id))
+    ) {
+      effectiveExpanded = next;
+      onEffectiveExpanded(new Set(next));
+    }
+  });
+
+  // Rebuild the visible graph when effective expansion state changes.
+  $effect(() => {
+    const vis = computeVisible(graph, effectiveExpanded);
+    const newlyExpanded = [...effectiveExpanded].filter((id) => !previousExpanded.has(id));
+    const newlyCollapsed = [...previousExpanded].filter((id) => !effectiveExpanded.has(id));
     // A deliberate single-group expansion is a local navigation action.
     // Bulk expansion retains the whole-graph overview instead.
     const focusId = newlyExpanded.length === 1 ? newlyExpanded[0] : undefined;
-    previousExpanded = new Set(expanded);
-    syncElements(vis, focusId);
+    previousExpanded = new Set(effectiveExpanded);
+    syncElements(
+      vis,
+      focusId,
+      newlyCollapsed.length === 1 ? newlyCollapsed[0] : undefined,
+    );
     untrack(() => applyHighlight());
   });
 
@@ -1717,10 +2291,14 @@
   data-layout-mode={layoutMode}
   data-compound-group-count={compoundGroupCount}
   data-current-zoom={currentZoom}
+  data-focus-local-coordinate-scale={focusLocalCoordinateScale}
+  data-focus-required-zoom={focusRequiredZoom}
   data-focus-anchor-delta-x={focusAnchorDeltaX}
   data-surrounding-position-drift={surroundingPositionDrift}
   data-root-overlap-count={rootOverlapCount}
   data-vertical-order-violation-count={verticalOrderViolationCount}
+  data-vertical-order-violation-edges={verticalOrderViolationEdges}
+  data-historical-order-mismatch-edge-count={historicalOrderMismatchEdgeCount}
   data-saved-layout-node-count={savedLayoutNodeCount}
   data-restored-layout-node-count={restoredLayoutNodeCount}
   data-restored-user-position-count={restoredUserPositionCount}
@@ -1731,10 +2309,13 @@
         class="band"
         role="listitem"
         data-maturity-level={stripe.level.id}
+        data-model-top={stripe.modelTop}
+        data-model-height={stripe.modelHeight}
         aria-label={`${stripe.label}: ${stripe.count} visible nodes`}
         style:top={`${stripe.top}px`}
         style:height={`${stripe.height}px`}
-        style:background={`color-mix(in srgb, ${stripe.color} 7%, transparent)`}
+        style:background={`color-mix(in srgb, ${stripe.color} 15%, var(--paper))`}
+        style:border-top-color={`color-mix(in srgb, ${stripe.color} 38%, var(--paper))`}
       >
         <span class="band-label" style:color={stripe.color}>{stripe.label}</span>
       </div>
@@ -1745,26 +2326,22 @@
     aria-label={`${graph.metadata.topic} knowledge dependency graph`}
     bind:this={container}
   ></div>
-  <div class="node-info-layer">
-    {#each infoButtons as button (button.id)}
-      <button
-        class="node-info"
-        type="button"
-        aria-label={`More information about ${button.label}`}
-        title={`More information about ${button.label}`}
-        data-node-id={button.id}
-        data-node-center-x={button.nodeCenterX}
-        data-node-center-y={button.nodeCenterY}
-        data-node-model-x={button.modelX}
-        data-node-model-y={button.modelY}
-        data-node-model-height={button.modelHeight}
-        style:left={`${button.left}px`}
-        style:top={`${button.top}px`}
-        onclick={(event) => {
-          event.stopPropagation();
-          onSelect(button.id);
-        }}
-      >?</button>
+  <div hidden aria-hidden="true" data-testid="node-diagnostics">
+    {#each nodeDiagnostics as node (node.id)}
+      <span
+        class="node-probe"
+        data-node-id={node.id}
+        data-node-label={node.label}
+        data-node-center-x={node.centerX}
+        data-node-center-y={node.centerY}
+        data-node-rendered-width={node.width}
+        data-node-rendered-height={node.height}
+        data-node-model-x={node.modelX}
+        data-node-model-y={node.modelY}
+        data-node-actual-model-x={node.actualModelX}
+        data-node-actual-model-y={node.actualModelY}
+        data-node-model-height={node.modelHeight}
+      ></span>
     {/each}
   </div>
 </div>
@@ -1777,35 +2354,6 @@
   .graph {
     position: absolute;
     inset: 0;
-  }
-  .node-info-layer {
-    position: absolute;
-    inset: 0;
-    overflow: hidden;
-    pointer-events: none;
-  }
-  .node-info {
-    position: absolute;
-    z-index: 2;
-    width: 20px;
-    height: 20px;
-    padding: 0;
-    transform: translate(-50%, -50%);
-    border: 1px solid rgba(45, 42, 36, 0.34);
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.92);
-    color: #514b41;
-    font: 700 13px/18px Inter, sans-serif;
-    cursor: pointer;
-    pointer-events: auto;
-    box-shadow: 0 1px 3px rgba(36, 31, 24, 0.16);
-  }
-  .node-info:hover,
-  .node-info:focus-visible {
-    border-color: #2f6fc2;
-    color: #2f6fc2;
-    outline: 2px solid rgba(47, 111, 194, 0.28);
-    outline-offset: 1px;
   }
   .bands {
     position: absolute;

@@ -4,6 +4,7 @@ import { parse } from 'yaml';
 
 import schema from '../../data/knowledge-base.schema.json';
 import type { ConceptEdge, ConceptGraph, GraphNode } from '../types';
+import { hasHistoricalOrderMismatch } from './history-order';
 import { loadKnowledgeGraphCatalog } from './catalog';
 import { loadKnowledgeBase } from './load';
 
@@ -177,6 +178,46 @@ describe('loadKnowledgeBase', () => {
       ].join('\n')),
     ).toThrow(/Group basics is in maturity zone elementary/);
   });
+
+  it('rejects group ids anywhere in a dependency chain', () => {
+    const source = (dependency: string) =>
+      [
+        'groups:',
+        '  - id: basics',
+        '    label: Basics',
+        '    maturityLevel: elementary',
+        'concepts:',
+        '  - id: counting',
+        '    label: Counting',
+        '    group: basics',
+        '    maturityLevel: elementary',
+        'dependencies:',
+        `  - ${dependency}`,
+      ].join('\n');
+
+    expect(() => loadKnowledgeBase(source('basics -> counting'))).toThrow(
+      /Dependency endpoint basics is a group; dependencies may reference concepts only/,
+    );
+    expect(() => loadKnowledgeBase(source('counting -> basics'))).toThrow(
+      /Dependency endpoint basics is a group; dependencies may reference concepts only/,
+    );
+  });
+
+  it('rejects ids shared by a group and a concept', () => {
+    expect(() =>
+      loadKnowledgeBase([
+        'groups:',
+        '  - id: basics',
+        '    label: Basics',
+        '    maturityLevel: elementary',
+        'concepts:',
+        '  - id: basics',
+        '    label: A concept also named basics',
+        '    group: basics',
+        '    maturityLevel: elementary',
+      ].join('\n')),
+    ).toThrow(/Duplicate group or concept id: basics/);
+  });
 });
 
 describe('knowledge-base graph invariants', () => {
@@ -211,27 +252,40 @@ describe('knowledge-base graph invariants', () => {
     }
   });
 
-  it('omits redundant maturity-level prefixes from group labels', () => {
+  it('uses globally unique display titles for every group and concept', () => {
     for (const bundledGraph of bundledGraphs) {
-      const groupsByLevel = new Map<string | undefined, GraphNode[]>();
-      for (const group of bundledGraph.nodes.filter((node) => node.isGroup)) {
-        const levelGroups = groupsByLevel.get(group.maturityLevel) ?? [];
-        levelGroups.push(group);
-        groupsByLevel.set(group.maturityLevel, levelGroups);
+      const nodeIdsByTitle = new Map<string, string[]>();
+      for (const node of bundledGraph.nodes) {
+        const ids = nodeIdsByTitle.get(node.label) ?? [];
+        ids.push(node.id);
+        nodeIdsByTitle.set(node.label, ids);
       }
 
-      for (const level of bundledGraph.maturityLevels) {
-        const levelGroups = groupsByLevel.get(level.id) ?? [];
-        for (const group of levelGroups) {
-          const prefix = `${level.label} `;
-          if (!group.label.startsWith(prefix)) continue;
+      const duplicates = [...nodeIdsByTitle.entries()]
+        .filter(([, ids]) => ids.length > 1)
+        .map(([title, ids]) => `${JSON.stringify(title)} (${ids.join(', ')})`);
+      expect(duplicates, bundledGraph.metadata.id).toEqual([]);
+    }
+  });
 
-          const unprefixed = group.label.slice(prefix.length);
-          const needsPrefix = levelGroups.some(
-            (candidate) => candidate.id !== group.id && candidate.label === unprefixed,
-          );
-          expect(needsPrefix, `${bundledGraph.metadata.id}:${group.id}`).toBe(true);
-        }
+  it('uses maturity prefixes on group titles only to disambiguate a repeated subject', () => {
+    for (const bundledGraph of bundledGraphs) {
+      const levelLabels = new Map(
+        bundledGraph.maturityLevels.map((level) => [level.id, level.label]),
+      );
+      const graphGroups = bundledGraph.nodes.filter((node) => node.isGroup);
+      const baseTitle = (group: GraphNode) => {
+        const prefix = `${levelLabels.get(group.maturityLevel ?? '') ?? ''} `;
+        return group.label.startsWith(prefix) ? group.label.slice(prefix.length) : group.label;
+      };
+
+      for (const group of graphGroups) {
+        const levelPrefix = `${levelLabels.get(group.maturityLevel ?? '') ?? ''} `;
+        if (!group.label.startsWith(levelPrefix)) continue;
+        const matchingSubjects = graphGroups.filter(
+          (candidate) => baseTitle(candidate) === baseTitle(group),
+        );
+        expect(matchingSubjects.length, `${bundledGraph.metadata.id}:${group.id}`).toBeGreaterThan(1);
       }
     }
   });
@@ -312,6 +366,25 @@ describe('knowledge-base graph invariants', () => {
     }
   });
 
+  it('flags every dependency with definitely reversed recorded history', () => {
+    const byId = new Map(concepts.map((concept) => [concept.id, concept]));
+    for (const edge of graph.edges) {
+      const expected = hasHistoricalOrderMismatch(
+        byId.get(edge.from)?.history,
+        byId.get(edge.to)?.history,
+      );
+      expect(Boolean(edge.historicalOrderMismatch), `${edge.from} -> ${edge.to}`).toBe(expected);
+    }
+
+    expect(nodeById(concepts, 'number-line').history).toBeDefined();
+    expect(graph.edges).toContainEqual({ from: 'integers', to: 'number-line' });
+    expect(graph.edges).toContainEqual({
+      from: 'limits',
+      to: 'derivatives',
+      historicalOrderMismatch: true,
+    });
+  });
+
   it('retains the expected graph coverage and metadata', () => {
     expect(groups.length).toBe(22);
     expect(concepts.length).toBeGreaterThanOrEqual(60);
@@ -342,27 +415,43 @@ describe('knowledge-base graph invariants', () => {
       'numbers -> arithmetic',
       'arithmetic -> elementary-number-systems',
       'arithmetic -> elementary-geometry',
-      'arithmetic -> elementary-probability-statistics',
-      'elementary-number-systems -> elementary-algebra',
-      'elementary-algebra -> elementary-functions-and-graphs',
+      'elementary-geometry -> high-school-geometry',
+      'elementary-number-systems -> elementary-probability-statistics',
       'high-school-functions-and-graphs -> high-school-calculus',
       'elementary-algebra -> trigonometry',
-      'trigonometry -> undergraduate-calculus',
-      'high-school-algebra -> high-school-linear-algebra',
       'elementary-functions-and-graphs -> high-school-probability-statistics',
-      'elementary-algebra -> high-school-discrete-math',
       'high-school-discrete-math -> abstract-algebra',
       'high-school-geometry -> trigonometry',
-      'high-school-geometry -> high-school-linear-algebra',
-      'high-school-linear-algebra -> abstract-algebra',
+      'high-school-linear-algebra -> undergraduate-linear-algebra',
     ]) {
       expect(derived, link).toContain(link);
     }
   });
 
-  it('leaves few concepts without prerequisites', () => {
+  it('keeps deliberate conceptual roots instead of inventing weak links', () => {
     const withIncoming = new Set(graph.edges.map((edge) => edge.to));
-    const roots = concepts.filter((concept) => !withIncoming.has(concept.id));
-    expect(roots.length).toBeLessThanOrEqual(6);
+    const roots = concepts
+      .filter((concept) => !withIncoming.has(concept.id))
+      .map((concept) => concept.id)
+      .sort();
+    expect(roots).toEqual([
+      'angles',
+      'area',
+      'circles',
+      'congruence',
+      'counting',
+      'descriptive-statistics',
+      'functions',
+      'graph-theory',
+      'logic',
+      'matrices',
+      'points-lines-and-planes',
+      'proofs',
+      'sets',
+      'triangles',
+      'variables',
+      'vectors',
+      'volume',
+    ]);
   });
 });

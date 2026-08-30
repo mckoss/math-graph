@@ -5,6 +5,33 @@ export interface SavedLocalPosition {
   bandFraction: number;
 }
 
+export interface ParentLocalPosition {
+  dx: number;
+  dy: number;
+}
+
+/** Capture authoritative coordinates relative to an immediate parent anchor. */
+export function captureParentLocalLayout(
+  anchor: Point,
+  nodes: readonly Pick<MaturityBandNodeBox, 'id' | 'point'>[],
+): Map<string, ParentLocalPosition> {
+  return new Map(nodes.map((node) => [node.id, {
+    dx: node.point.x - anchor.x,
+    dy: node.point.y - anchor.y,
+  }]));
+}
+
+/** Compose parent world translation with saved immediate-child coordinates. */
+export function restoreParentLocalLayout(
+  anchor: Point,
+  saved: ReadonlyMap<string, ParentLocalPosition>,
+): Map<string, Point> {
+  return new Map([...saved].map(([id, position]) => [id, {
+    x: anchor.x + position.dx,
+    y: anchor.y + position.dy,
+  }]));
+}
+
 function safeYRange(
   band: Pick<MaturityBandRect, 'y1' | 'y2'>,
   height: number,

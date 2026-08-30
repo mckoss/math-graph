@@ -68,6 +68,29 @@ describe('computeVisible', () => {
       'nested-concept',
     ]);
   });
+
+  it('flags an aggregate edge when any represented concept edge reverses history', () => {
+    const graph: ConceptGraph = {
+      metadata: { id: 'history', topic: 'History' },
+      maturityLevels: [],
+      nodes: [
+        { id: 'sources', label: 'Sources', isGroup: true },
+        { id: 'targets', label: 'Targets', isGroup: true },
+        { id: 'source-a', label: 'Source A', isGroup: false, parent: 'sources' },
+        { id: 'source-b', label: 'Source B', isGroup: false, parent: 'sources' },
+        { id: 'target-a', label: 'Target A', isGroup: false, parent: 'targets' },
+        { id: 'target-b', label: 'Target B', isGroup: false, parent: 'targets' },
+      ],
+      edges: [
+        { from: 'source-a', to: 'target-a' },
+        { from: 'source-b', to: 'target-b', historicalOrderMismatch: true },
+      ],
+    };
+
+    expect(computeVisible(graph, none).edges).toEqual([
+      { from: 'sources', to: 'targets', historicalOrderMismatch: true },
+    ]);
+  });
 });
 
 describe('representativeOf', () => {

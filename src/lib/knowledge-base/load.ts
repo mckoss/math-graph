@@ -10,6 +10,7 @@ import type {
   KnowledgeGraphMetadata,
   MaturityLevel,
 } from '../types';
+import { hasHistoricalOrderMismatch } from './history-order';
 
 interface SourceConcept {
   id: string;
@@ -66,6 +67,14 @@ export function loadKnowledgeBase(source: string): ConceptGraph {
   }
   nodes.push(...(document.concepts ?? []).map(conceptNode));
 
+  const seenNodeIds = new Set<string>();
+  for (const node of nodes) {
+    if (seenNodeIds.has(node.id)) {
+      throw new Error(`Duplicate group or concept id: ${node.id}`);
+    }
+    seenNodeIds.add(node.id);
+  }
+
   const groupsById = new Map(nodes.filter((node) => node.isGroup).map((node) => [node.id, node]));
   for (const node of nodes) {
     if (node.parent === undefined) continue;
@@ -80,10 +89,33 @@ export function loadKnowledgeBase(source: string): ConceptGraph {
 
   const edges: ConceptEdge[] = [];
   const seen = new Set<string>();
+  const conceptsById = new Map(
+    nodes.filter((node) => !node.isGroup).map((node) => [node.id, node]),
+  );
   for (const chain of document.dependencies ?? []) {
     const ids = chain.split('->').map((id) => id.trim());
     for (let index = 0; index + 1 < ids.length; index += 1) {
-      const edge = { from: ids[index], to: ids[index + 1] };
+      const from = ids[index];
+      const to = ids[index + 1];
+      for (const endpoint of [from, to]) {
+        if (conceptsById.has(endpoint)) continue;
+        if (groupsById.has(endpoint)) {
+          throw new Error(
+            `Dependency endpoint ${endpoint} is a group; dependencies may reference concepts only`,
+          );
+        }
+        throw new Error(`Dependency endpoint ${endpoint} does not name a known concept`);
+      }
+      const edge: ConceptEdge = {
+        from,
+        to,
+        ...(hasHistoricalOrderMismatch(
+          conceptsById.get(from)?.history,
+          conceptsById.get(to)?.history,
+        )
+          ? { historicalOrderMismatch: true }
+          : {}),
+      };
       const key = `${edge.from}\0${edge.to}`;
       if (!seen.has(key)) {
         seen.add(key);

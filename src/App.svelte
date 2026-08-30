@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import type { ConceptGraph, GraphNode } from './lib/types';
+  import { onMount, untrack } from 'svelte';
+  import type { ConceptGraph, ConceptHistory, GraphNode } from './lib/types';
   import { SITE_TITLE } from './lib/site';
   import {
     applyKnowledgeRating,
@@ -13,22 +13,42 @@
   } from './lib/knowledge-state';
   import GraphView from './lib/viz/GraphView.svelte';
   import { maturityPaint, orderedMaturityLevels } from './lib/viz/colors';
+  import { loadUserState } from './lib/viz/user-store';
   import {
     ancestorsOf,
     childrenByParent,
     computeVisible,
     conceptCountOf,
+    descendantsOf,
     nodesById,
+    representativeOf,
   } from './lib/viz/graph-model';
 
   let { graphs }: { graphs: ConceptGraph[] } = $props();
-  let selectedGraphId = $state('');
+  function loadExpanded(graph: ConceptGraph | undefined): ReadonlySet<string> {
+    if (graph === undefined) return new Set();
+    try {
+      const knownGroups = new Set(graph.nodes.filter((node) => node.isGroup).map((node) => node.id));
+      return new Set(
+        loadUserState(window.localStorage, graph.metadata.id).expanded.filter((id) =>
+          knownGroups.has(id),
+        ),
+      );
+    } catch {
+      return new Set();
+    }
+  }
+
+  const initialGraph = untrack(() => graphs[0]);
+  let selectedGraphId = $state(initialGraph?.metadata.id ?? '');
   const graph = $derived(
     graphs.find((candidate) => candidate.metadata.id === selectedGraphId) ?? graphs[0],
   );
 
   let selectedId = $state<string | null>(null);
-  let expanded = $state<ReadonlySet<string>>(new Set());
+  const initialExpanded = loadExpanded(initialGraph);
+  let requestedExpanded = $state<ReadonlySet<string>>(initialExpanded);
+  let effectiveExpanded = $state<ReadonlySet<string>>(initialExpanded);
   let graphView = $state<GraphView>();
   let knowledgeRatings = $state<KnowledgeRatings>({});
 
@@ -36,7 +56,7 @@
   const children = $derived(childrenByParent(graph));
   const groupIds = $derived(graph.nodes.filter((n) => n.isGroup).map((n) => n.id));
   const conceptCount = $derived(graph.nodes.filter((n) => !n.isGroup).length);
-  const visibleGraph = $derived(computeVisible(graph, expanded));
+  const visibleGraph = $derived(computeVisible(graph, effectiveExpanded));
   const maturityLevels = $derived(orderedMaturityLevels(graph.maturityLevels));
   const selectedKnowledge = $derived(
     selectedId === null
@@ -45,34 +65,68 @@
   );
 
   const selected = $derived(selectedId === null ? null : (byId.get(selectedId) ?? null));
-  const prerequisites = $derived(
-    selected === null
-      ? []
-      : graph.edges
-          .filter((e) => e.to === selected.id)
-          .map((e) => byId.get(e.from))
-          .filter((n): n is GraphNode => n !== undefined),
-  );
-  const dependents = $derived(
-    selected === null
-      ? []
-      : graph.edges
-          .filter((e) => e.from === selected.id)
-          .map((e) => byId.get(e.to))
-          .filter((n): n is GraphNode => n !== undefined),
-  );
+  function immediateNeighbors(direction: 'in' | 'out'): GraphNode[] {
+    if (selected === null) return [];
+    const scope = new Set(
+      selected.isGroup
+        ? descendantsOf(children, selected.id).filter((id) => !byId.get(id)?.isGroup)
+        : [selected.id],
+    );
+    const ids = new Set<string>();
+    for (const edge of graph.edges) {
+      const inside = direction === 'in' ? edge.to : edge.from;
+      const outside = direction === 'in' ? edge.from : edge.to;
+      if (!scope.has(inside) || scope.has(outside)) continue;
+      const visibleId = representativeOf(byId, effectiveExpanded, outside);
+      if (visibleId !== null && visibleId !== selected.id) ids.add(visibleId);
+    }
+    return [...ids].flatMap((id) => {
+      const node = byId.get(id);
+      return node === undefined ? [] : [node];
+    });
+  }
+
+  const prerequisites = $derived(immediateNeighbors('in'));
+  const dependents = $derived(immediateNeighbors('out'));
+
+  function historicalYear(year: number): string {
+    return `${Math.abs(year)} ${year < 0 ? 'BCE' : 'CE'}`;
+  }
+
+  function historyPeriod(history: ConceptHistory): string | null {
+    const { from, to } = history;
+    if (from === undefined && to === undefined) return null;
+
+    let period: string;
+    if (from === undefined) {
+      period = `By ${historicalYear(to!)}`;
+    } else if (to === undefined || from === to) {
+      period = historicalYear(from);
+    } else if ((from < 0) === (to < 0)) {
+      period = `${Math.abs(from)}–${Math.abs(to)} ${from < 0 ? 'BCE' : 'CE'}`;
+    } else {
+      period = `${historicalYear(from)}–${historicalYear(to)}`;
+    }
+
+    return history.circa === true ? `Circa ${period}` : period;
+  }
+
+  function setExpanded(next: ReadonlySet<string>): void {
+    requestedExpanded = next;
+    graphView?.persistExpanded(next, new Set(groupIds));
+  }
 
   /** Select a node; expand its ancestor groups so it is actually visible. */
   function selectNode(id: string | null): void {
     if (id !== null) {
-      const ancestors = ancestorsOf(byId, id).filter((a) => !expanded.has(a));
-      if (ancestors.length > 0) expanded = new Set([...expanded, ...ancestors]);
+      const ancestors = ancestorsOf(byId, id).filter((a) => !requestedExpanded.has(a));
+      if (ancestors.length > 0) setExpanded(new Set([...requestedExpanded, ...ancestors]));
     }
     selectedId = id;
   }
 
   function toggleGroup(id: string): void {
-    const next = new Set(expanded);
+    const next = new Set(requestedExpanded);
     if (next.has(id)) {
       next.delete(id);
       // If the selection just got swallowed by the collapse, select the group.
@@ -82,16 +136,22 @@
     } else {
       next.add(id);
     }
-    expanded = next;
+    setExpanded(next);
+  }
+
+  function panelDoubleClick(event: MouseEvent): void {
+    if (selected === null) return;
+    if ((event.target as Element).closest('button, a, input, select, textarea')) return;
+    const groupId = selected.isGroup ? selected.id : selected.parent;
+    if (groupId !== undefined) toggleGroup(groupId);
   }
 
   function expandAll(): void {
-    expanded = new Set(groupIds);
-    if (selectedId !== null && byId.get(selectedId)?.isGroup) selectedId = null;
+    setExpanded(new Set(groupIds));
   }
 
   function collapseAll(): void {
-    expanded = new Set();
+    setExpanded(new Set());
     if (selectedId !== null) {
       const ancestors = ancestorsOf(byId, selectedId);
       if (ancestors.length > 0) selectedId = ancestors[ancestors.length - 1];
@@ -107,12 +167,12 @@
   function selectGraph(id: string): void {
     selectedGraphId = id;
     selectedId = null;
-    expanded = new Set();
+    requestedExpanded = loadExpanded(graphs.find((candidate) => candidate.metadata.id === id));
+    effectiveExpanded = requestedExpanded;
     knowledgeRatings = loadKnowledgeRatings(localStorage, id);
   }
 
   onMount(() => {
-    selectedGraphId = graph.metadata.id;
     knowledgeRatings = loadKnowledgeRatings(localStorage, graph.metadata.id);
   });
 </script>
@@ -149,10 +209,11 @@
       <GraphView
         bind:this={graphView}
         {graph}
-        {expanded}
+        expanded={requestedExpanded}
         {selectedId}
         onSelect={selectNode}
         onToggleGroup={toggleGroup}
+        onEffectiveExpanded={(next) => effectiveExpanded = next}
       />
     {/key}
 
@@ -182,13 +243,23 @@
           {level.label}
         </span>
       {/each}
+      <span class="legend-divider" aria-hidden="true"></span>
+      <span class="legend-item" title="The recorded prerequisite period begins after the dependent concept's period">
+        <span class="edge-swatch edge-swatch-dashed" aria-hidden="true"></span>
+        Later-recorded prerequisite
+      </span>
     </div>
 
     <p class="hint" hidden={selected !== null}>
-      Use ? for details · drag to move nearby concepts · double-click a group to open it
+      Click a block for details · drag to move nearby concepts · double-click a group to open it
     </p>
 
-    <aside class="panel" class:open={selected !== null} aria-hidden={selected === null}>
+    <aside
+      class="panel"
+      class:open={selected !== null}
+      aria-hidden={selected === null}
+      ondblclick={panelDoubleClick}
+    >
       {#if selected}
         <button class="close" aria-label="Close panel" onclick={() => (selectedId = null)}>×</button>
 
@@ -216,9 +287,40 @@
           <p class="panel-desc">{selected.description}</p>
         {/if}
 
+        {#if !selected.isGroup && selected.history !== undefined}
+          {@const period = historyPeriod(selected.history)}
+          <section class="history" aria-labelledby="history-heading">
+            <h3 id="history-heading" class="panel-sub">Development history</h3>
+            {#if period !== null}
+              <p class="history-period">{period}</p>
+            {/if}
+            {#if selected.history.note !== undefined}
+              <p class="history-note">{selected.history.note}</p>
+            {/if}
+            {#if selected.history.attributions !== undefined}
+              <h4 class="history-attributions-heading">Associated people and cultures</h4>
+              <ul class="history-attributions">
+                {#each selected.history.attributions as attribution (attribution.name)}
+                  <li>
+                    {#if attribution.wikipedia !== undefined}
+                      <a
+                        href={`https://en.wikipedia.org/wiki/${attribution.wikipedia}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >{attribution.name}</a>
+                    {:else}
+                      {attribution.name}
+                    {/if}
+                  </li>
+                {/each}
+              </ul>
+            {/if}
+          </section>
+        {/if}
+
         {#if selected.isGroup}
           <button class="expand-btn" onclick={() => toggleGroup(selected.id)}>
-            {expanded.has(selected.id) ? '⊟ Collapse group' : '⊞ Expand group'}
+            {requestedExpanded.has(selected.id) ? '⊟ Collapse group' : '⊞ Expand group'}
           </button>
         {/if}
 
@@ -242,8 +344,9 @@
           {/each}
         </div>
 
-        {#if prerequisites.length > 0}
-          <h3 class="panel-sub">Builds on</h3>
+        <section aria-label="Depends on">
+          <h3 class="panel-sub">Depends on ({prerequisites.length})</h3>
+          {#if prerequisites.length > 0}
           <div class="chips">
             {#each prerequisites as n (n.id)}
               <button class="chip" onclick={() => selectNode(n.id)}>
@@ -252,10 +355,14 @@
               </button>
             {/each}
           </div>
-        {/if}
+          {:else}
+            <p class="empty-neighbors">None</p>
+          {/if}
+        </section>
 
-        {#if dependents.length > 0}
-          <h3 class="panel-sub">Leads to</h3>
+        <section aria-label="Immediate dependents">
+          <h3 class="panel-sub">Immediate dependents ({dependents.length})</h3>
+          {#if dependents.length > 0}
           <div class="chips">
             {#each dependents as n (n.id)}
               <button class="chip" onclick={() => selectNode(n.id)}>
@@ -264,7 +371,10 @@
               </button>
             {/each}
           </div>
-        {/if}
+          {:else}
+            <p class="empty-neighbors">None</p>
+          {/if}
+        </section>
 
         {#if selected.wikipedia !== undefined}
           <a
@@ -466,6 +576,18 @@
     border: 1.5px solid;
     display: inline-block;
   }
+  .legend-divider {
+    align-self: stretch;
+    border-left: 1px solid var(--line);
+  }
+  .edge-swatch {
+    width: 22px;
+    display: inline-block;
+    border-top: 2px solid #9d9689;
+  }
+  .edge-swatch-dashed {
+    border-top-style: dashed;
+  }
 
   /* ---- Hint ---- */
   .hint {
@@ -500,9 +622,13 @@
     box-shadow: var(--panel-shadow);
     transform: translateX(calc(100% + 32px));
     transition: transform 0.28s cubic-bezier(0.3, 0.9, 0.3, 1);
+    pointer-events: none;
+    visibility: hidden;
   }
   .panel.open {
     transform: translateX(0);
+    pointer-events: auto;
+    visibility: visible;
   }
   .close {
     position: absolute;
@@ -553,6 +679,35 @@
     font-size: 13.5px;
     line-height: 1.55;
     color: var(--ink-soft);
+  }
+  .history-period {
+    margin: 0 0 6px;
+    color: var(--ink);
+    font-size: 13.5px;
+    font-weight: 650;
+  }
+  .history-note {
+    margin: 0;
+    color: var(--ink-soft);
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+  .history-attributions-heading {
+    margin: 10px 0 4px;
+    color: var(--ink-faint);
+    font-size: 11px;
+    font-weight: 650;
+  }
+  .history-attributions {
+    margin: 0;
+    padding-left: 18px;
+    color: var(--ink-soft);
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+  .history-attributions a {
+    color: var(--ink);
+    text-underline-offset: 2px;
   }
   .expand-btn {
     appearance: none;
@@ -611,6 +766,11 @@
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
+  }
+  .empty-neighbors {
+    margin: 0;
+    color: var(--ink-faint);
+    font-size: 12.5px;
   }
   .chip {
     appearance: none;

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { captureLocalLayout, restoreLocalLayout } from './session-layout';
+import {
+  captureLocalLayout,
+  captureParentLocalLayout,
+  restoreLocalLayout,
+  restoreParentLocalLayout,
+} from './session-layout';
 
 describe('session group layout', () => {
   it('restores horizontal offsets and maturity-relative vertical positions', () => {
@@ -23,5 +28,18 @@ describe('session group layout', () => {
       [{ band: 0, y1: 0, y2: 200, count: 1 }],
     );
     expect(restored.size).toBe(0);
+  });
+
+  it('translates every restored child uniformly with its immediate parent', () => {
+    const saved = captureParentLocalLayout(
+      { x: 100, y: 200 },
+      [
+        { id: 'left', point: { x: 70, y: 220 } },
+        { id: 'right', point: { x: 140, y: 260 } },
+      ],
+    );
+    const restored = restoreParentLocalLayout({ x: 350, y: 500 }, saved);
+    expect(restored.get('left')).toEqual({ x: 320, y: 520 });
+    expect(restored.get('right')).toEqual({ x: 390, y: 560 });
   });
 });

@@ -42,6 +42,20 @@ version under the title.
   concepts only; group edges are display aggregates derived from underlying
   concept relationships. A later visualization checkpoint will weight them by
   how many concept edges they represent.
+- Dependencies are intentionally sparse and definitional: `a -> b` means
+  understanding `b` genuinely depends on `a`. A useful example, visual model,
+  solution technique, neighboring field, or conventional teaching order is
+  not sufficient. Independent roots are preferable to invented connectivity.
+  Linear chains remain concise in YAML (`a -> b -> c`) and expand into adjacent
+  immediate dependencies.
+- The primary dependency graph excludes ubiquitous background knowledge when
+  an edge would not discriminate among targets. Logic, language, basic
+  reasoning, and similarly pervasive foundations do not point to every topic
+  merely because they inform it. Formal Logic receives a dependency edge only
+  where its specific concepts are genuinely required. A future optional
+  relationship overlay may expose broader `uses`, `informed-by`, or
+  `foundation` connections without adding them to the default layout or to
+  prerequisite-frontier calculations.
 - Vertical dependency order is a hard interaction and layout constraint: every
   visible block must remain strictly below all visible prerequisite parents,
   with enough center-to-center clearance for both full block heights plus the
@@ -67,11 +81,12 @@ version under the title.
   subject spanning levels is represented by sibling groups such as
   `elementary-algebra` and `high-school-algebra`, never by one cross-zone
   container.
-- A group's visible title omits its maturity-level name because the containing
-  band already supplies that context. Add a level or other qualifying prefix
-  only when it is needed to distinguish otherwise-identical group titles
-  within the same maturity band; stable group ids remain distinct across all
-  bands regardless of their display labels.
+- Every group and concept has a graph-wide unique display title so spoken and
+  visual references are unambiguous. A group's visible title otherwise omits
+  its maturity-level name because the containing band already supplies that
+  context; add a maturity or other qualifying prefix only when the same base
+  subject appears elsewhere in the graph. Stable ids remain independently
+  unique and are still used for every cross-reference.
 - Client-side layout is responsive while prioritizing readability and a clear
   top-to-bottom maturity flow over filling the full width. Nodes and labels
   must remain comfortably legible at the initial fit, ranks should form a
@@ -81,18 +96,27 @@ version under the title.
   left-to-right rank order, then compacts each rank toward the graph
   centerline without overlap. The explicit **Layout Now** control clears saved
   drag offsets and recomputes this compact layout for the current visible
-  graph.
+  graph. Blocks animate from their current displayed positions to the new
+  targets with a coordinated, visible approximately 900 ms cubic ease-in and
+  ease-out transition for both nodes and camera; the control must never visibly
+  clear and redraw the graph from a common origin.
 - Dense views such as **Expand all** wrap nodes into maturity-band rows whose
   model width is capped to the current viewport. Extra content grows
   vertically, opens aligned to the earliest visible maturity band, and may
   require downward panning; the explicit Fit control remains the way to
   request a whole-graph overview.
-- Focused expansion preserves the group's existing horizontal graph anchor;
-  its container grows vertically only as required by its children's maturity
-  bands. The initial camera zooms to make the internal concepts readable. If
-  the expanded container would overlap surrounding root blocks, the group
-  remains anchored and only those surrounding blocks move horizontally by the
-  minimum distance needed to clear it.
+- Expanding or collapsing a group is not a global layout operation. Every
+  already-visible node retains its exact model coordinates and the expanded
+  compound shares the collapsed block's former geometric center; only newly
+  revealed descendants receive compact positions around that center.
+- Expansion has separate requested and visible state. Explicit open/close
+  actions update the persisted requested set. The visible set contains only
+  requested groups whose current compound geometry can avoid external blocks
+  at the current zoom. Opening computes the minimum feasible global zoom for
+  the requested set and animates to it. Zooming out visually collapses groups
+  that are no longer feasible without discarding the request; zooming back in
+  restores them automatically. Nested groups restore only with visible
+  ancestors, and a small threshold hysteresis prevents flicker.
 - Focus is never a viewport lock. Zoom limits remain derived from the entire
   visible graph even while a group is expanded, so users can immediately zoom
   and pan back to surrounding blocks or use Fit to restore global context.
@@ -104,22 +128,60 @@ version under the title.
   the local block coordinate, recomputes the minimum contiguous zone extents,
   and shifts neighboring zone origins with their members while preserving the
   dragged block under the pointer. Empty zones retain a visible minimum height.
-- Full block rectangles, including the configured gap, must never overlap.
-  Automatic layout, direct dragging, and spring-following motion all resolve
-  collisions without violating maturity-band bounds or dense-view width caps.
+- Full block rectangles, including the configured gap, must not overlap after
+  automatic layout, direct dragging, spring-following motion, or group
+  expansion. Expansion never moves an existing neighbor: the camera instead
+  animates to the minimum globally safe zoom, and an expansion that is not
+  feasible at the current zoom is visually collapsed while its requested state
+  remains available for automatic restoration after zooming in.
 - Expanding a group preserves the parent hierarchy: the group remains visible
   as a containing group and its direct children appear inside it. Nested
   subgroups remain nested groups rather than promoting descendants to top-level
-  graph nodes. This is a visualization state, not a separate schema type.
-- An expanded group container remains wholly inside its one maturity zone.
-  Maturity zones expand vertically whenever visible nested content needs more
-  room, shifting neighboring zones and their blocks together rather than
-  compressing, crossing, or overlapping content.
-- A normal block click is reserved for direct graph interaction and never
-  opens the information panel. Every visible block has a distinct `?` button
-  inside its upper-right corner; activating that control opens the panel for
-  the block. The affordance is a real keyboard-accessible DOM button even
-  though the graph itself is canvas-rendered.
+  graph nodes. Expansion and collapse are visibility-and-camera operations,
+  never layout operations: every element visible both before and after the
+  toggle retains exactly the same model-space center, including the containing
+  group's center. Every element has one canonical parent-local coordinate even
+  while hidden; expansion atomically reveals children at those coordinates and
+  collapse atomically hides them. Node centers never animate during either
+  operation—only the camera does. This is a visualization state, not a separate
+  schema type.
+- Every expanded group recursively applies the same compact top-to-bottom
+  dependency-rank layout used at the graph root, except that its children need
+  no maturity-band partition because the whole group belongs to one band.
+  Direct child concepts and subgroup compounds are rigid units; disconnected
+  or wide ranks wrap, barycentric ordering reduces crossings, full boxes cannot
+  overlap, and each scope is centerline-compacted in coordinates relative to
+  its unchanged parent center. After recursive layout establishes topology and
+  ordering, a uniform parent-local transform is optimized against the actual
+  fixed exterior neighborhood to minimize the collision-free camera zoom; its
+  aspect ratio remains one. Camera zoom, rather than arbitrary fixed
+  compression, restores readable box and text size.
+- An expanded group remains assigned to its one maturity zone, but expansion
+  itself does not restack bands or move their existing members.
+- A normal block click selects that block and opens its information sidebar;
+  the redundant per-node `?` affordance is not displayed. Double-clicking
+  anywhere on a collapsed group expands it. Double-clicking an expanded group
+  or one of its descendants toggles the nearest containing group.
+- Once a block is selected, its sidebar persists through background clicks,
+  group expansion, and bulk expansion until the user explicitly closes it,
+  selects another block, or changes domains. Selection emphasizes only the
+  chosen block; unrelated blocks and dependency edges retain their normal
+  opacity.
+- Below 100% zoom, boxes and text scale normally with the graph. At and above
+  100%, ordinary boxes and typography remain clamped to their nominal rendered
+  size while their center positions continue to spread; groups retain their
+  slightly larger type and structural container styling. The transition at
+  100% is continuous.
+- Color has one semantic meaning: maturity level. Every group, concept, legend
+  item, and zone uses the level color and tint defined by that graph's YAML;
+  no rotating or arbitrary subject-family palette is applied. Groups are
+  distinguished by typography, border, and container treatment instead.
+- The information sidebar always lists the selected block's immediate
+  prerequisites under **Depends on** and its immediate dependents as
+  navigable controls, including an
+  explicit empty state. For groups, these are derived external neighbors of
+  descendant concept edges and mapped to the currently visible blocks, so a
+  collapsed or expanded group remains an exploration entry point.
 - Users can self-evaluate each concept as `aware`, `familiar`, or `mastered`.
   Applying a level to a group recursively applies it to every descendant leaf
   concept; group details show the shared level or a mixed state. These ratings
@@ -145,9 +207,9 @@ version under the title.
   blocks as a secondary animation effect.
   Reduced-motion users receive direct node dragging without coupled animation.
   Child rearrangements are retained by node id when their group is closed and
-  reopened. Saved positions are relative to the group anchor and maturity-band
-  origin so they survive responsive resizing and can recreate a band expanded
-  by downward dragging. Drag offsets for
+  reopened. Group children save `{dx, dy}` relative only to their immediate
+  parent; top-level blocks separately use maturity-zone-local coordinates so
+  both survive responsive resizing. Drag offsets for
   the directly moved block and any collision- or dependency-propagated blocks
   are persisted in domain-namespaced browser local storage and restored from a
   fresh computed layout after refresh; stale ids are safely ignored.
@@ -158,12 +220,28 @@ version under the title.
   coordinate system. Because groups cannot cross zones, each block has one
   unambiguous transform path. Cytoscape compound bounds are presentation output,
   not authoritative parent coordinates.
+- Expanded and collapsed group state is persisted per knowledge domain. After
+  **Layout Now**, refreshing the page must reproduce the same visible blocks,
+  model positions, maturity-band geometry, zoom, and camera framing without a
+  perceptible jump.
 - Optional historical metadata describes a development period or meaningful milestones,
   not necessarily a single moment of invention. Notes distinguish discovery,
   notation, formalization, publication, and generalization; attributions favor
   honest cultural, co-discovery, and collaborative context over false
-  precision. Historical claims need multiple citations and explicit provenance
-  before the content is considered reviewed.
+  precision. A selected concept's sidebar displays its BCE/CE development
+  period, approximate-date status, note, and attributed people or cultures;
+  group sidebars omit history because the schema restricts it to concepts.
+  Historical claims need multiple citations and explicit provenance before the
+  content is considered reviewed.
+- Discovery chronology is a strong audit signal for dependency quality. When
+  the prerequisite's earliest recorded development is later than the
+  dependent concept's latest recorded development, the derived edge is shown
+  dashed. Missing or overlapping periods remain unclassified. A dashed edge
+  indicates a likely modern pedagogical convention and should be reviewed for
+  removal, reversal, or replacement with knowledge truly required to
+  understand the dependent; it is not automatically invalid because later
+  formalization of an older implicit idea is possible. Aggregated group edges
+  are dashed when any represented concept dependency carries this signal.
 - The user reviews meaningful interface changes through `npm run dev`;
   automated checks complement rather than replace that review. When requested,
   a checkpoint may be consolidated into the primary local `main` worktree for
@@ -199,6 +277,10 @@ version under the title.
    from the user's locally stored knowledge ratings.
 5. **Graph meaning and history:** weighted aggregate group-edge styling,
    history UI, and reviewed multi-source provenance for historical claims.
+   The Math example's prerequisite set has been critically reduced from 163
+   to 110 immediate, definitional dependencies; integer and polynomial
+   factorization are separate concepts, and definite historical-order
+   mismatches are derived as dashed audit signals.
 6. **Multi-domain foundation (completed):** v0.3.0 recasts the application as
    Knowledge Graph, auto-discovers independently authored YAML graphs, displays
    the selected topic as a switchable subtitle, namespaces local state by graph
@@ -215,7 +297,7 @@ version under the title.
 - [x] YAML knowledge graphs (`src/data/graphs/*.yaml`) + standard YAML
       loading, checked-in schema, and semantic validation (duplicate ids,
       dangling refs, cycle detection)
-- [x] Initial Math example graph: 22 groups, 94 concepts, elementary →
+- [x] Initial Math example graph: 22 groups, 96 concepts, elementary →
       2nd-year undergraduate, every node linked to Wikipedia
 - [x] Interactive graph: Cytoscape + dagre, zoom/pan, prerequisite→dependent
       top-to-bottom flow

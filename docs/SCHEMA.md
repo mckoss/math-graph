@@ -27,8 +27,10 @@ dependencies:    # prerequisite chains written with "->"
 ```
 
 All cross-referenced ids within one dataset share the same kebab-case format
-and namespace. A maturity
-level, group, subgroup, or concept may not reuse another record's id.
+and namespace. A maturity level, group, subgroup, or concept may not reuse
+another record's id. Group and concept display labels must also be unique
+across the whole dataset; use a maturity or other concise qualifier only when
+needed to disambiguate an otherwise repeated subject title.
 
 ## Dataset metadata
 
@@ -93,7 +95,7 @@ allowing the taxonomy to grow beyond a fixed depth.
 ```yaml
 groups:
   - id: elementary-number-systems
-    label: Number Systems
+    label: Elementary Number Systems
     maturityLevel: elementary
     wikipedia: Number_system
     description: "Successive enlargements of the idea of number."
@@ -198,6 +200,11 @@ dependencies, never stored simplifications. Cross-group concept dependencies
 are expected. Backward maturity links should appear only when the knowledge
 base explicitly justifies the exception.
 
+Dependencies are deliberately sparse: the source must be genuinely necessary
+to understand the target. Do not encode examples, representations, solution
+techniques, adjacent subjects, or customary teaching order as prerequisites.
+Concepts may remain independent roots when no true prerequisite exists.
+
 ## Validation
 
 The JSON Schema enforces document shape, required fields, value types,
@@ -206,6 +213,7 @@ unit suite enforces relationships that require a global view of the data:
 
 - ids are globally unique across maturity levels, groups, subgroups, and
   concepts;
+- group and concept display labels are unique across the entire dataset;
 - maturity `order` values are unique;
 - every concept's `group` and `maturityLevel` references exist;
 - every group has one explicit maturity level, and every concept or subgroup
@@ -215,6 +223,10 @@ unit suite enforces relationships that require a global view of the data:
 - the concept dependency graph is acyclic;
 - historical ranges use signed BCE years, omit year zero, and satisfy
   `from <= to`;
+- a dependency is derived as a historical-order mismatch when its
+  prerequisite's earliest recorded development is later than the dependent's
+  latest recorded development; missing and overlapping periods remain
+  unclassified, while mismatches are shown as dashed audit signals;
 - backward maturity dependencies are absent unless deliberately documented.
 
 Invalid source in any bundled graph blocks a passing test run and therefore cannot deploy through

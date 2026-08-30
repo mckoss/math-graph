@@ -99,15 +99,24 @@ export function computeVisible(graph: ConceptGraph, expanded: ReadonlySet<string
   const nodes = graph.nodes.filter((n) => representativeOf(byId, expanded, n.id) === n.id);
 
   const edges: ConceptEdge[] = [];
-  const seen = new Set<string>();
+  const byKey = new Map<string, ConceptEdge>();
   for (const e of graph.edges) {
     const from = representativeOf(byId, expanded, e.from);
     const to = representativeOf(byId, expanded, e.to);
     if (from === null || to === null || from === to) continue;
     const key = `${from}\0${to}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    edges.push({ from, to });
+    const existing = byKey.get(key);
+    if (existing !== undefined) {
+      if (e.historicalOrderMismatch) existing.historicalOrderMismatch = true;
+      continue;
+    }
+    const visibleEdge: ConceptEdge = {
+      from,
+      to,
+      ...(e.historicalOrderMismatch ? { historicalOrderMismatch: true } : {}),
+    };
+    byKey.set(key, visibleEdge);
+    edges.push(visibleEdge);
   }
 
   return { nodes, edges };

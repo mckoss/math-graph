@@ -71,17 +71,17 @@ groups:
   # Number Systems
   # ---------------------------------------------------------------------------
   - id: elementary-number-systems
-    label: "Number Systems"
+    label: "Elementary Number Systems"
     maturityLevel: elementary
     wikipedia: Number_system
     description: "Foundational enlargements of counting numbers to integers, rational numbers, irrational numbers, and primes."
   - id: high-school-number-systems
-    label: "Number Systems"
+    label: "High School Number Systems"
     maturityLevel: high-school
     wikipedia: Number_system
     description: "The real and complex number systems studied in high school mathematics."
   - id: undergraduate-number-systems
-    label: "Number Systems"
+    label: "Undergraduate Number Systems"
     maturityLevel: undergraduate
     wikipedia: Number_system
     description: "Further enlargements of number systems studied in undergraduate mathematics."
@@ -89,12 +89,12 @@ groups:
   # Algebra
   # ---------------------------------------------------------------------------
   - id: elementary-algebra
-    label: "Algebra"
+    label: "Elementary Algebra"
     maturityLevel: elementary
     wikipedia: Algebra
     description: "Early work with symbols, expressions, linear equations, and inequalities."
   - id: high-school-algebra
-    label: "Algebra"
+    label: "High School Algebra"
     maturityLevel: high-school
     wikipedia: Algebra
     description: "Polynomial, quadratic, logarithmic, and simultaneous equations studied in high school."
@@ -102,12 +102,12 @@ groups:
   # Geometry
   # ---------------------------------------------------------------------------
   - id: elementary-geometry
-    label: "Geometry"
+    label: "Elementary Geometry"
     maturityLevel: elementary
     wikipedia: Geometry
     description: "The foundational mathematics of shape, size, measurement, congruence, and similarity."
   - id: high-school-geometry
-    label: "Geometry"
+    label: "High School Geometry"
     maturityLevel: high-school
     wikipedia: Geometry
     description: "Coordinate methods for studying geometric shape and position."
@@ -123,12 +123,12 @@ groups:
   # Functions & Graphs
   # ---------------------------------------------------------------------------
   - id: elementary-functions-and-graphs
-    label: "Functions & Graphs"
+    label: "Elementary Functions & Graphs"
     maturityLevel: elementary
     wikipedia: Function_(mathematics)
     description: "Introductory functions, graphs, and slope."
   - id: high-school-functions-and-graphs
-    label: "Functions & Graphs"
+    label: "High School Functions & Graphs"
     maturityLevel: high-school
     wikipedia: Function_(mathematics)
     description: "Composition, inverses, exponential functions, and sequences."
@@ -136,12 +136,12 @@ groups:
   # Calculus
   # ---------------------------------------------------------------------------
   - id: high-school-calculus
-    label: "Calculus"
+    label: "High School Calculus"
     maturityLevel: high-school
     wikipedia: Calculus
     description: "Limits, derivatives, and integrals in a first calculus course."
   - id: undergraduate-calculus
-    label: "Calculus"
+    label: "Undergraduate Calculus"
     maturityLevel: undergraduate
     wikipedia: Calculus
     description: "Advanced integration, series, multivariable calculus, differential equations, and analysis."
@@ -149,12 +149,12 @@ groups:
   # Linear Algebra
   # ---------------------------------------------------------------------------
   - id: high-school-linear-algebra
-    label: "Linear Algebra"
+    label: "High School Linear Algebra"
     maturityLevel: high-school
     wikipedia: Linear_algebra
     description: "Introductory vectors, dot products, and matrices."
   - id: undergraduate-linear-algebra
-    label: "Linear Algebra"
+    label: "Undergraduate Linear Algebra"
     maturityLevel: undergraduate
     wikipedia: Linear_algebra
     description: "Vector spaces, linear transformations, determinants, independence, and eigenvalues."
@@ -162,17 +162,17 @@ groups:
   # Probability & Statistics
   # ---------------------------------------------------------------------------
   - id: elementary-probability-statistics
-    label: "Probability & Statistics"
+    label: "Elementary Probability & Statistics"
     maturityLevel: elementary
     wikipedia: Probability_and_statistics
     description: "First ideas of chance and descriptive statistics."
   - id: high-school-probability-statistics
-    label: "Probability & Statistics"
+    label: "High School Probability & Statistics"
     maturityLevel: high-school
     wikipedia: Probability_and_statistics
     description: "Conditional probability, random variables, distributions, expectation, and the normal distribution."
   - id: undergraduate-probability-statistics
-    label: "Probability & Statistics"
+    label: "Undergraduate Probability & Statistics"
     maturityLevel: undergraduate
     wikipedia: Probability_and_statistics
     description: "Bayesian reasoning, limit theorems, inference, and regression."
@@ -180,12 +180,12 @@ groups:
   # Discrete Mathematics
   # ---------------------------------------------------------------------------
   - id: high-school-discrete-math
-    label: "Discrete Mathematics"
+    label: "High School Discrete Mathematics"
     maturityLevel: high-school
     wikipedia: Discrete_mathematics
     description: "Sets, logic, proof, induction, and combinatorics."
   - id: undergraduate-discrete-math
-    label: "Discrete Mathematics"
+    label: "Undergraduate Discrete Mathematics"
     maturityLevel: undergraduate
     wikipedia: Discrete_mathematics
     description: "Graph theory and modular arithmetic in undergraduate discrete mathematics."
@@ -241,7 +241,7 @@ concepts:
         - name: "Indian mathematicians"
           wikipedia: Indian_mathematics
   - id: number-line
-    group: numbers
+    group: elementary-number-systems
     label: "The Number Line"
     wikipedia: Number_line
     maturityLevel: elementary
@@ -565,19 +565,30 @@ concepts:
       attributions:
         - name: "Gerolamo Cardano"
           wikipedia: Gerolamo_Cardano
-  - id: factoring
-    group: high-school-algebra
-    label: "Factoring"
-    wikipedia: Factorization
-    maturityLevel: high-school
-    description: "Rewriting a number or polynomial as a product of simpler pieces, mirroring prime factorization."
+  - id: integer-factorization
+    group: arithmetic
+    label: "Integer Factorization"
+    wikipedia: Integer_factorization
+    maturityLevel: elementary
+    description: "Rewriting an integer as a product of smaller integer factors."
     history:
       from: -300
       circa: true
-      note: "Unique factorization of integers is implicit in Euclid; polynomial factoring came with symbolic algebra."
+      note: "Unique factorization of integers is implicit in Euclid."
       attributions:
         - name: "Euclid"
           wikipedia: Euclid
+  - id: polynomial-factorization
+    group: high-school-algebra
+    label: "Polynomial Factorization"
+    wikipedia: Factorization_of_polynomials
+    maturityLevel: high-school
+    description: "Rewriting a polynomial as a product of lower-degree polynomial factors."
+    history:
+      from: 1545
+      to: 1637
+      circa: true
+      note: "Polynomial factorization developed with symbolic algebra and solutions of polynomial equations."
   - id: quadratic-equations
     group: high-school-algebra
     label: "Quadratic Equations"
@@ -609,6 +620,19 @@ concepts:
         - name: "Henry Briggs"
           wikipedia: Henry_Briggs_(mathematician)
 
+  - id: points-lines-and-planes
+    group: elementary-geometry
+    label: "Points, Lines & Planes"
+    wikipedia: Point_(geometry)
+    maturityLevel: elementary
+    description: "The primitive objects of geometry: positions, straight paths through them, and the flat surfaces containing them."
+    history:
+      from: -300
+      circa: true
+      note: "Euclid organized points, lines, and planes as the foundations of axiomatic geometry."
+      attributions:
+        - name: "Euclid"
+          wikipedia: Euclid
   - id: angles
     group: elementary-geometry
     label: "Angles"
@@ -1504,76 +1528,57 @@ dependencies:
   # ---------------------------------------------------------------------------
   # Numbers & counting
   # ---------------------------------------------------------------------------
-  - counting -> natural-numbers
-  - natural-numbers -> place-value
-  - natural-numbers -> number-line
+  - counting -> natural-numbers -> place-value
 
   # ---------------------------------------------------------------------------
   # Arithmetic
   # ---------------------------------------------------------------------------
-  - counting -> addition
-  - natural-numbers -> addition
-  - addition -> subtraction
+  - natural-numbers -> addition -> subtraction
   - addition -> multiplication -> division
   - division -> fractions
   - place-value -> decimals
-  - fractions -> decimals -> percentages
-  - fractions -> ratios
+  - fractions -> decimals
+  - fractions -> percentages
   - division -> ratios
   - addition -> order-of-operations
   - multiplication -> order-of-operations
-  - multiplication -> exponentiation -> square-roots
+  - multiplication -> exponentiation
+  - multiplication -> square-roots
 
   # ---------------------------------------------------------------------------
   # Number systems
   # ---------------------------------------------------------------------------
-  - subtraction -> integers
-  - number-line -> integers
+  - subtraction -> integers -> number-line
   - fractions -> rational-numbers
   - integers -> rational-numbers
-  - square-roots -> irrational-numbers
   - rational-numbers -> irrational-numbers
   - rational-numbers -> real-numbers
   - irrational-numbers -> real-numbers
-  - real-numbers -> complex-numbers
-  - square-roots -> complex-numbers
-  - quadratic-equations -> complex-numbers
-  - complex-numbers -> quaternions
+  - real-numbers -> complex-numbers -> quaternions
   - natural-numbers -> prime-numbers
-  - division -> prime-numbers
 
   # ---------------------------------------------------------------------------
   # Algebra
   # ---------------------------------------------------------------------------
-  - integers -> variables
   - variables -> algebraic-expressions
-  - order-of-operations -> algebraic-expressions
   - algebraic-expressions -> linear-equations
-  - linear-equations -> inequalities
-  - number-line -> inequalities
+  - algebraic-expressions -> inequalities
   - linear-equations -> systems-of-equations
   - algebraic-expressions -> polynomials
   - exponentiation -> polynomials
-  - polynomials -> factoring
-  - prime-numbers -> factoring
-  - factoring -> quadratic-equations
-  - square-roots -> quadratic-equations
+  - division -> integer-factorization -> prime-numbers
+  - polynomials -> polynomial-factorization
+  - polynomials -> quadratic-equations
   - exponentiation -> logarithms
-  - exponential-functions -> logarithms
 
   # ---------------------------------------------------------------------------
   # Geometry
   # ---------------------------------------------------------------------------
-  - angles -> triangles
-  - multiplication -> area
-  - area -> volume
-  - triangles -> congruence -> similarity
   - ratios -> similarity
   - triangles -> pythagorean-theorem
-  - square-roots -> pythagorean-theorem
+  - exponentiation -> pythagorean-theorem
+  - points-lines-and-planes -> coordinate-geometry
   - number-line -> coordinate-geometry
-  - linear-equations -> coordinate-geometry
-  - pythagorean-theorem -> coordinate-geometry
 
   # ---------------------------------------------------------------------------
   # Trigonometry
@@ -1582,28 +1587,25 @@ dependencies:
   - similarity -> trig-functions
   - angles -> radians
   - circles -> radians
-  - radians -> unit-circle
+  - circles -> unit-circle
+  - coordinate-geometry -> unit-circle
   - trig-functions -> unit-circle
-  - unit-circle -> trig-identities
-  - pythagorean-theorem -> trig-identities
+  - trig-functions -> trig-identities
   - algebraic-expressions -> trig-identities
   - trig-functions -> inverse-trig-functions
   - inverse-functions -> inverse-trig-functions
-  - unit-circle -> polar-coordinates
+  - angles -> polar-coordinates
   - coordinate-geometry -> polar-coordinates
 
   # ---------------------------------------------------------------------------
   # Functions & graphs
   # ---------------------------------------------------------------------------
-  - variables -> functions
   - functions -> graphing
-  - graphing -> slope
   - ratios -> slope
   - functions -> function-composition -> inverse-functions
   - exponentiation -> exponential-functions
   - functions -> exponential-functions
   - natural-numbers -> sequences
-  - functions -> sequences
 
   # ---------------------------------------------------------------------------
   # Calculus
@@ -1616,92 +1618,57 @@ dependencies:
   - derivatives -> chain-rule
   - function-composition -> chain-rule
   - limits -> integrals
-  - area -> integrals
   - derivatives -> fundamental-theorem-of-calculus
   - integrals -> fundamental-theorem-of-calculus
-  - fundamental-theorem-of-calculus -> integration-techniques
+  - integrals -> integration-techniques
   - chain-rule -> integration-techniques
-  - trig-identities -> integration-techniques
-  - logarithms -> integration-techniques
   - sequences -> infinite-series
   - limits -> infinite-series
   - infinite-series -> taylor-series
   - derivatives -> taylor-series
   - derivatives -> partial-derivatives
-  - vectors -> partial-derivatives
   - derivatives -> differential-equations
-  - integrals -> differential-equations
   - limits -> real-analysis
   - proofs -> real-analysis
   - real-numbers -> real-analysis
-  - infinite-series -> real-analysis
 
   # ---------------------------------------------------------------------------
   # Linear algebra
   # ---------------------------------------------------------------------------
-  - coordinate-geometry -> vectors
   - vectors -> dot-product
-  - trig-functions -> dot-product
-  - systems-of-equations -> matrices
-  - vectors -> matrices
   - matrices -> determinants
   - vectors -> linear-independence
-  - matrices -> linear-independence
-  - linear-independence -> vector-spaces
+  - vectors -> vector-spaces
   - sets -> vector-spaces
-  - matrices -> linear-transformations
   - vector-spaces -> linear-transformations
   - functions -> linear-transformations
-  - determinants -> eigenvalues
   - linear-transformations -> eigenvalues
-  - polynomials -> eigenvalues
 
   # ---------------------------------------------------------------------------
   # Probability & statistics
   # ---------------------------------------------------------------------------
-  - fractions -> probability
+  - rational-numbers -> probability
   - probability -> conditional-probability -> bayes-theorem
-  - division -> descriptive-statistics
-  - graphing -> descriptive-statistics
   - probability -> random-variables
   - functions -> random-variables
-  - random-variables -> probability-distributions
-  - probability-distributions -> expected-value
+  - probability -> probability-distributions
+  - probability -> expected-value
   - probability-distributions -> normal-distribution
-  - integrals -> normal-distribution
   - normal-distribution -> central-limit-theorem
   - expected-value -> central-limit-theorem
-  - central-limit-theorem -> hypothesis-testing
-  - descriptive-statistics -> hypothesis-testing
-  - descriptive-statistics -> regression
-  - slope -> regression
-  - linear-equations -> regression
+  - probability-distributions -> hypothesis-testing
+  - random-variables -> regression
 
   # ---------------------------------------------------------------------------
   # Discrete mathematics
   # ---------------------------------------------------------------------------
-  - logic -> proofs
-  - sets -> proofs
   - proofs -> induction
   - natural-numbers -> induction
-  - algebraic-expressions -> induction
   - counting -> combinatorics
-  - multiplication -> combinatorics
-  - sets -> graph-theory
-  - combinatorics -> graph-theory
   - integers -> modular-arithmetic
   - division -> modular-arithmetic
-  - prime-numbers -> modular-arithmetic
 
   # ---------------------------------------------------------------------------
   # Abstract algebra
   # ---------------------------------------------------------------------------
-  - sets -> groups
-  - proofs -> groups
-  - modular-arithmetic -> groups
-  - matrices -> groups
-  - groups -> rings
-  - integers -> rings
-  - matrices -> rings
-  - rings -> fields
-  - rational-numbers -> fields
+  - sets -> groups -> rings -> fields

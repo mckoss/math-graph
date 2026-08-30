@@ -82,6 +82,8 @@ export interface ConceptHistory {
 export interface ConceptEdge {
   from: string;
   to: string;
+  /** Recorded prerequisite period begins after the dependent period ends. */
+  historicalOrderMismatch?: boolean;
 }
 
 export interface ConceptGraph {
