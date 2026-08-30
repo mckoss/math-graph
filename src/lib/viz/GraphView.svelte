@@ -614,6 +614,7 @@
             source: edge.from,
             target: edge.to,
             semanticDepth: depth,
+            sourceSupported: edge.provenance === 'source-supported' ? 1 : 0,
             historicalOrderMismatch: edge.historicalOrderMismatch ? 1 : 0,
           },
         });
@@ -741,6 +742,7 @@
             source: edge.from,
             target: edge.to,
             semanticDepth: maximumSemanticDepth(),
+            sourceSupported: edge.provenance === 'source-supported' ? 1 : 0,
             historicalOrderMismatch: edge.historicalOrderMismatch ? 1 : 0,
           },
         });
@@ -1978,6 +1980,13 @@
         'arrow-scale': 0.85,
         'transition-property': 'opacity',
         'transition-duration': 150,
+      } as never,
+    },
+    {
+      selector: 'edge[sourceSupported = 1]',
+      style: {
+        'line-color': '#2f7d67',
+        'target-arrow-color': '#2f7d67',
       } as never,
     },
     {

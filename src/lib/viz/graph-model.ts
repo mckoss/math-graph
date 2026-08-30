@@ -108,11 +108,13 @@ export function computeVisible(graph: ConceptGraph, expanded: ReadonlySet<string
     const existing = byKey.get(key);
     if (existing !== undefined) {
       if (e.historicalOrderMismatch) existing.historicalOrderMismatch = true;
+      if (e.provenance !== existing.provenance) delete existing.provenance;
       continue;
     }
     const visibleEdge: ConceptEdge = {
       from,
       to,
+      ...(e.provenance === undefined ? {} : { provenance: e.provenance }),
       ...(e.historicalOrderMismatch ? { historicalOrderMismatch: true } : {}),
     };
     byKey.set(key, visibleEdge);

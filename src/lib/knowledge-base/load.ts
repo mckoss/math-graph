@@ -36,7 +36,10 @@ interface KnowledgeBaseDocument {
   maturityLevels?: MaturityLevel[];
   groups?: SourceGroup[];
   concepts?: SourceConcept[];
-  dependencies?: string[];
+  dependencies?: string[] | {
+    sourceSupported?: string[];
+    inferred?: string[];
+  };
 }
 
 function conceptNode(source: SourceConcept): GraphNode {
@@ -92,34 +95,49 @@ export function loadKnowledgeBase(source: string): ConceptGraph {
   const conceptsById = new Map(
     nodes.filter((node) => !node.isGroup).map((node) => [node.id, node]),
   );
-  for (const chain of document.dependencies ?? []) {
-    const ids = chain.split('->').map((id) => id.trim());
-    for (let index = 0; index + 1 < ids.length; index += 1) {
-      const from = ids[index];
-      const to = ids[index + 1];
-      for (const endpoint of [from, to]) {
-        if (conceptsById.has(endpoint)) continue;
-        if (groupsById.has(endpoint)) {
-          throw new Error(
-            `Dependency endpoint ${endpoint} is a group; dependencies may reference concepts only`,
-          );
+  const dependencyGroups = Array.isArray(document.dependencies)
+    ? [{ chains: document.dependencies, provenance: undefined }]
+    : [
+        {
+          chains: document.dependencies?.sourceSupported ?? [],
+          provenance: 'source-supported' as const,
+        },
+        {
+          chains: document.dependencies?.inferred ?? [],
+          provenance: 'inferred' as const,
+        },
+      ];
+  for (const { chains, provenance } of dependencyGroups) {
+    for (const chain of chains) {
+      const ids = chain.split('->').map((id) => id.trim());
+      for (let index = 0; index + 1 < ids.length; index += 1) {
+        const from = ids[index];
+        const to = ids[index + 1];
+        for (const endpoint of [from, to]) {
+          if (conceptsById.has(endpoint)) continue;
+          if (groupsById.has(endpoint)) {
+            throw new Error(
+              `Dependency endpoint ${endpoint} is a group; dependencies may reference concepts only`,
+            );
+          }
+          throw new Error(`Dependency endpoint ${endpoint} does not name a known concept`);
         }
-        throw new Error(`Dependency endpoint ${endpoint} does not name a known concept`);
-      }
-      const edge: ConceptEdge = {
-        from,
-        to,
-        ...(hasHistoricalOrderMismatch(
-          conceptsById.get(from)?.history,
-          conceptsById.get(to)?.history,
-        )
-          ? { historicalOrderMismatch: true }
-          : {}),
-      };
-      const key = `${edge.from}\0${edge.to}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        edges.push(edge);
+        const edge: ConceptEdge = {
+          from,
+          to,
+          ...(provenance === undefined ? {} : { provenance }),
+          ...(hasHistoricalOrderMismatch(
+            conceptsById.get(from)?.history,
+            conceptsById.get(to)?.history,
+          )
+            ? { historicalOrderMismatch: true }
+            : {}),
+        };
+        const key = `${edge.from}\0${edge.to}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          edges.push(edge);
+        }
       }
     }
   }

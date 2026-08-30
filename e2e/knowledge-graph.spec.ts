@@ -48,7 +48,7 @@ test('presents and operates the Knowledge Graph Math domain', async ({ page }) =
   ).toBeVisible();
   const domain = page.getByRole('combobox', { name: 'Knowledge domain' });
   await expect(domain).toHaveValue('math');
-  await expect(domain.locator('option')).toHaveText(['Math', 'Physics']);
+  await expect(domain.locator('option')).toHaveText(['Math', 'Common Core Math', 'Physics']);
   await expect(page.getByText('96 concepts', { exact: true })).toBeVisible();
   await expect(page.getByText('110 connections', { exact: true })).toBeVisible();
   await expect(nodeProbe(page, 'elementary-algebra')).toHaveAttribute(
@@ -452,6 +452,30 @@ test('switches between independent knowledge domains', async ({ page }) => {
   await page.goto('./');
 
   const domain = page.getByRole('combobox', { name: 'Knowledge domain' });
+  await domain.selectOption('cc-math');
+
+  await expect(domain).toHaveValue('cc-math');
+  await expect(page.getByText('386 concepts', { exact: true })).toBeVisible();
+  await expect(page.getByText('384 connections', { exact: true })).toBeVisible();
+  await expect(page.locator('.graph')).toHaveAttribute(
+    'aria-label',
+    'Common Core Math knowledge dependency graph',
+  );
+  const commonCoreBands = page.locator('[role="list"][aria-label="Knowledge levels"] .band');
+  await expect(commonCoreBands).toHaveCount(10);
+  await expect(commonCoreBands.locator('.band-label')).toHaveText([
+    'Kindergarten',
+    'Grade 1',
+    'Grade 2',
+    'Grade 3',
+    'Grade 4',
+    'Grade 5',
+    'Grade 6',
+    'Grade 7',
+    'Grade 8',
+    'High School',
+  ]);
+
   await domain.selectOption('physics');
 
   await expect(domain).toHaveValue('physics');

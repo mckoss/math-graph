@@ -11,12 +11,25 @@
     "groups": { "type": "array", "items": { "$ref": "#/definitions/group" } },
     "concepts": { "type": "array", "items": { "$ref": "#/definitions/concept" } },
     "dependencies": {
-      "type": "array",
-      "items": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?:\\s*->\\s*[a-z0-9]+(?:-[a-z0-9]+)*)+$" }
+      "oneOf": [
+        { "$ref": "#/definitions/dependencyPaths" },
+        { "$ref": "#/definitions/dependencyGroups" }
+      ]
     }
   },
   "definitions": {
     "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "dependencyPath": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?:\\s*->\\s*[a-z0-9]+(?:-[a-z0-9]+)*)+$" },
+    "dependencyPaths": { "type": "array", "items": { "$ref": "#/definitions/dependencyPath" } },
+    "dependencyGroups": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "properties": {
+        "sourceSupported": { "$ref": "#/definitions/dependencyPaths" },
+        "inferred": { "$ref": "#/definitions/dependencyPaths" }
+      }
+    },
     "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
     "metadata": {
       "type": "object",

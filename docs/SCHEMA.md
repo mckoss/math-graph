@@ -23,7 +23,7 @@ metadata:        # stable dataset identity and topic selector label
 maturityLevels:  # ordered display metadata for horizontal maturity bands
 groups:          # recursively nested organizational groups
 concepts:        # flat concept records with group and maturity references
-dependencies:    # prerequisite chains written with "->"
+dependencies:    # prerequisite chains, either one list or provenance groups
 ```
 
 All cross-referenced ids within one dataset share the same kebab-case format
@@ -193,6 +193,25 @@ dependencies:
   - counting -> natural-numbers -> integers
   - natural-numbers -> prime-numbers
 ```
+
+The compact flat list remains the default. A dataset that distinguishes
+relationships directly supported by its source from relationships inferred by
+its authors may instead group the same path syntax by provenance:
+
+```yaml
+dependencies:
+  sourceSupported:
+    - grade-2-groups -> grade-3-multiplication # Source page or note
+  inferred:
+    - grade-3-multiplication -> grade-4-factors
+```
+
+Both forms expand chains into adjacent concept edges. The grouped form assigns
+`source-supported` or `inferred` provenance to each expanded edge. The
+visualization colors source-supported edges distinctly; inference retains the
+ordinary edge color. YAML comments are the preferred place for concise source
+citations because they do not create a second metadata vocabulary. The dashed
+historical-order treatment is independent of provenance.
 
 Group-to-group and group-to-concept dependencies are invalid. Links displayed
 for collapsed groups are aggregates derived from underlying concept

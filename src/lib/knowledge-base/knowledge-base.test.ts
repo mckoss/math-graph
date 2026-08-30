@@ -14,6 +14,13 @@ const bundledSources = import.meta.glob('../../data/graphs/*.yaml', {
   import: 'default',
   query: '?raw',
 }) as Record<string, string>;
+const commonCoreOutlineSources = import.meta.glob('../../../docs/cc-math-outline.txt', {
+  eager: true,
+  import: 'default',
+  query: '?raw',
+}) as Record<string, string>;
+const commonCoreOutline = Object.values(commonCoreOutlineSources)[0];
+if (!commonCoreOutline) throw new Error('Common Core Math outline not found');
 const bundledDocuments = Object.entries(bundledSources).map(([path, source]) => ({
   path,
   document: parse(source, { uniqueKeys: true }),
@@ -163,6 +170,47 @@ describe('loadKnowledgeBase', () => {
     ]);
   });
 
+  it('loads provenance-grouped dependency paths without changing compact chain syntax', () => {
+    const loaded = loadKnowledgeBase([
+      'metadata:',
+      '  id: example',
+      '  topic: Example',
+      'maturityLevels:',
+      '  - id: elementary',
+      '    label: Elementary',
+      '    order: 1',
+      '    color: "#111111"',
+      '    tint: "#eeeeee"',
+      'groups:',
+      '  - id: basics',
+      '    label: Basics',
+      '    maturityLevel: elementary',
+      'concepts:',
+      '  - id: counting',
+      '    label: Counting',
+      '    group: basics',
+      '    maturityLevel: elementary',
+      '  - id: numbers',
+      '    label: Numbers',
+      '    group: basics',
+      '    maturityLevel: elementary',
+      '  - id: algebra',
+      '    label: Algebra',
+      '    group: basics',
+      '    maturityLevel: elementary',
+      'dependencies:',
+      '  sourceSupported:',
+      '    - counting -> numbers',
+      '  inferred:',
+      '    - numbers -> algebra',
+    ].join('\n'));
+
+    expect(loaded.edges).toEqual([
+      { from: 'counting', to: 'numbers', provenance: 'source-supported' },
+      { from: 'numbers', to: 'algebra', provenance: 'inferred' },
+    ]);
+  });
+
   it('rejects a child assigned to a different maturity zone than its group', () => {
     expect(() =>
       loadKnowledgeBase([
@@ -249,6 +297,50 @@ describe('knowledge-base graph invariants', () => {
         );
       }
       expect(cycleIn(bundledGraph.edges), bundledGraph.metadata.id).toBeNull();
+    }
+  });
+
+  it('keeps the Common Core standard graph and text outline complete and synchronized', () => {
+    const commonCore = bundledGraphs.find((candidate) => candidate.metadata.id === 'cc-math');
+    if (!commonCore) throw new Error('Bundled Common Core Math graph not found');
+
+    expect(commonCore.maturityLevels.map((level) => level.id)).toEqual([
+      'kindergarten',
+      'grade-1',
+      'grade-2',
+      'grade-3',
+      'grade-4',
+      'grade-5',
+      'grade-6',
+      'grade-7',
+      'grade-8',
+      'high-school',
+    ]);
+    const incoming = new Set(commonCore.edges.map((edge) => edge.to));
+    const standardConcepts = commonCore.nodes.filter(
+      (node) => !node.isGroup && node.id !== 'hs-modeling-cycle',
+    );
+    expect(standardConcepts).toHaveLength(385);
+    for (const concept of standardConcepts) {
+      expect(concept.label, concept.id).toMatch(
+        /^(?:(?:K|[1-8])\.[A-Z]+|[A-Z]+-[A-Z]+)\.\d+(?: \(\+\))? — \S.+/,
+      );
+    }
+
+    const laterConcepts = commonCore.nodes.filter(
+      (node) => !node.isGroup && node.maturityLevel !== 'kindergarten',
+    );
+    for (const concept of laterConcepts) {
+      expect(incoming, concept.id).toContain(concept.id);
+    }
+    expect(commonCore.edges.some((edge) => edge.provenance === 'source-supported')).toBe(true);
+    expect(commonCore.edges.some((edge) => edge.provenance === 'inferred')).toBe(true);
+
+    const outlineLines = new Set(
+      commonCoreOutline.split('\n').map((line) => line.trim()).filter(Boolean),
+    );
+    for (const node of commonCore.nodes) {
+      expect(outlineLines, node.id).toContain(node.label);
     }
   });
 

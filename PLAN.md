@@ -16,6 +16,15 @@ version under the title.
   provides a domain selector, so adding Physics, Chemistry, Computer Science,
   or another domain requires data and validation work but no registry edit in
   application code. Math and Physics are the initial bundled examples.
+- The `cc-math` graph is independent of the existing Math graph and
+  follows the Common Core source's own zones: Kindergarten, each of Grades 1-8,
+  and High School. Its six high-school conceptual categories share the High
+  School zone; it does not reuse the existing Math graph's maturity levels.
+  Domains and clusters are recursively nested groups, numbered standards are
+  concepts with descriptive titles, and lettered components remain in their
+  parent standard descriptions. A synchronized text outline mirrors the same
+  grade/domain/cluster/standard hierarchy. Only Kindergarten concepts may be
+  dependency roots.
 - Each graph defines required metadata with a stable kebab-case `id`, display
   `topic`, optional description, and at most one collection-wide `default`.
   Dataset ids namespace all browser-owned ratings and future layout state so
@@ -48,6 +57,11 @@ version under the title.
   not sufficient. Independent roots are preferable to invented connectivity.
   Linear chains remain concise in YAML (`a -> b -> c`) and expand into adjacent
   immediate dependencies.
+- A dataset may keep dependencies as one plain list or divide them into
+  `sourceSupported` and `inferred` lists while retaining the same concise path
+  syntax. Source-supported edges use a distinct color; inferred and unannotated
+  edges use the ordinary treatment. Historical-order mismatch remains an
+  independent dashed-line signal and may coexist with either provenance.
 - The primary dependency graph excludes ubiquitous background knowledge when
   an edge would not discriminate among targets. Logic, language, basic
   reasoning, and similarly pervasive foundations do not point to every topic
@@ -344,6 +358,13 @@ version under the title.
       and provenance end-to-end
 - [x] Data-format direction settled: YAML knowledge base (comments +
       diff-friendly), checked-in schema, extensible per-node attributes
+- [ ] Simplify YAML authoring with hierarchical node representation: make each
+      maturity zone a nesting level that contains its groups and nodes, and
+      allow groups to contain child groups and concepts directly. Descendants
+      inherit both zone and group location so those fields do not have to be
+      repeated on every node. Preserve stable ids, flat dependency references,
+      schema validation, and mechanical normalization to the runtime graph
+      model.
 - [x] Data principle settled: the knowledge base records concept-level
       dependencies only; group-to-group links are subjective
       simplifications, derived by the visualization's aggregation (the

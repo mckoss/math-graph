@@ -91,6 +91,32 @@ describe('computeVisible', () => {
       { from: 'sources', to: 'targets', historicalOrderMismatch: true },
     ]);
   });
+
+  it('retains source provenance only when every edge in an aggregate is source-supported', () => {
+    const graph: ConceptGraph = {
+      metadata: { id: 'provenance', topic: 'Provenance' },
+      maturityLevels: [],
+      nodes: [
+        { id: 'sources', label: 'Sources', isGroup: true },
+        { id: 'targets', label: 'Targets', isGroup: true },
+        { id: 'source-a', label: 'Source A', isGroup: false, parent: 'sources' },
+        { id: 'source-b', label: 'Source B', isGroup: false, parent: 'sources' },
+        { id: 'target-a', label: 'Target A', isGroup: false, parent: 'targets' },
+        { id: 'target-b', label: 'Target B', isGroup: false, parent: 'targets' },
+      ],
+      edges: [
+        { from: 'source-a', to: 'target-a', provenance: 'source-supported' },
+        { from: 'source-b', to: 'target-b', provenance: 'source-supported' },
+      ],
+    };
+
+    expect(computeVisible(graph, none).edges).toEqual([
+      { from: 'sources', to: 'targets', provenance: 'source-supported' },
+    ]);
+
+    graph.edges[1].provenance = 'inferred';
+    expect(computeVisible(graph, none).edges).toEqual([{ from: 'sources', to: 'targets' }]);
+  });
 });
 
 describe('representativeOf', () => {

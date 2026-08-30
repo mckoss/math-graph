@@ -82,6 +82,8 @@ export interface ConceptHistory {
 export interface ConceptEdge {
   from: string;
   to: string;
+  /** How this prerequisite relationship is justified by its dataset. */
+  provenance?: 'source-supported' | 'inferred';
   /** Recorded prerequisite period begins after the dependent period ends. */
   historicalOrderMismatch?: boolean;
 }
