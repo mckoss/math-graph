@@ -300,7 +300,7 @@ describe('knowledge-base graph invariants', () => {
     }
   });
 
-  it('keeps the Common Core standard graph and text outline complete and synchronized', () => {
+  it('keeps the Common Core graph complete and its source outline reference-aligned', () => {
     const commonCore = bundledGraphs.find((candidate) => candidate.metadata.id === 'cc-math');
     if (!commonCore) throw new Error('Bundled Common Core Math graph not found');
 
@@ -325,6 +325,34 @@ describe('knowledge-base graph invariants', () => {
       expect(concept.label, concept.id).toMatch(
         /^(?:(?:K|[1-8])\.[A-Z]+|[A-Z]+-[A-Z]+)\.\d+(?: \(\+\))? — \S.+/,
       );
+      expect(concept.label.length, concept.id).toBeLessThanOrEqual(70);
+      const title = concept.label.split(' — ')[1];
+      expect(title, concept.id).not.toMatch(
+        /^(?:Understand|Describe|Explain|Use|Apply|Solve|Write|Represent|Know|Find|Compute|Construct|Analyze|Identify|Determine|Generate|Perform|Prove|Derive|Choose|Develop|Make|Give|Evaluate|Calculate|Work|Extend|Relate|Count|Compare|Classify|Measure|Tell|Draw|Create)\b/i,
+      );
+      const reference = concept.label.split(' — ')[0].replace(' (+)', '');
+      expect(concept.description, concept.id).toMatch(
+        new RegExp(
+          `^Common Core ${reference.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:(?: \\(\\+\\))? \\S`,
+        ),
+      );
+    }
+
+    const commonCoreGroups = commonCore.nodes.filter((node) => node.isGroup);
+    for (const group of commonCoreGroups) {
+      expect(group.label.length, group.id).toBeLessThanOrEqual(64);
+      if (!group.parent) continue;
+      const [reference, ...titleWords] = group.label.split(' ');
+      const isCluster = /^(?:(?:K|[1-8])\.[A-Z]+\.[A-Z]|[A-Z]+-[A-Z]+\.[A-Z])$/.test(
+        reference,
+      );
+      if (!isCluster) continue;
+      expect(titleWords.join(' '), group.id).not.toMatch(
+        /^(?:Understand|Describe|Explain|Use|Apply|Solve|Write|Represent|Know|Find|Compute|Construct|Analyze|Identify|Determine|Generate|Perform|Prove|Derive|Choose|Develop|Make|Give|Evaluate|Calculate|Work|Extend|Relate|Count|Compare|Classify|Measure|Tell|Draw|Create)\b/i,
+      );
+      expect(group.description, group.id).toMatch(
+        new RegExp(`^Common Core cluster ${reference.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}: \\S`),
+      );
     }
 
     const laterConcepts = commonCore.nodes.filter(
@@ -336,11 +364,13 @@ describe('knowledge-base graph invariants', () => {
     expect(commonCore.edges.some((edge) => edge.provenance === 'source-supported')).toBe(true);
     expect(commonCore.edges.some((edge) => edge.provenance === 'inferred')).toBe(true);
 
-    const outlineLines = new Set(
-      commonCoreOutline.split('\n').map((line) => line.trim()).filter(Boolean),
-    );
+    const outlineLines = commonCoreOutline.split('\n').map((line) => line.trim()).filter(Boolean);
     for (const node of commonCore.nodes) {
-      expect(outlineLines, node.id).toContain(node.label);
+      const reference = node.label.split(node.isGroup ? ' ' : ' — ')[0];
+      expect(
+        outlineLines.some((line) => line === node.label || line.startsWith(`${reference} `)),
+        node.id,
+      ).toBe(true);
     }
   });
 

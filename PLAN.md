@@ -20,11 +20,13 @@ version under the title.
   follows the Common Core source's own zones: Kindergarten, each of Grades 1-8,
   and High School. Its six high-school conceptual categories share the High
   School zone; it does not reuse the existing Math graph's maturity levels.
-  Domains and clusters are recursively nested groups, numbered standards are
-  concepts with descriptive titles, and lettered components remain in their
-  parent standard descriptions. A synchronized text outline mirrors the same
-  grade/domain/cluster/standard hierarchy. Only Kindergarten concepts may be
-  dependency roots.
+  Domains and clusters are recursively nested groups. Visible cluster and
+  numbered-standard titles retain their references but use concise,
+  content-centered noun phrases; the full official Common Core wording lives
+  in sidebar descriptions, and lettered components remain in their parent
+  standard descriptions. The source-oriented text outline retains the original
+  Common Core headings while mirroring the same grade/domain/cluster/standard
+  references and hierarchy. Only Kindergarten concepts may be dependency roots.
 - Each graph defines required metadata with a stable kebab-case `id`, display
   `topic`, optional description, and at most one collection-wide `default`.
   Dataset ids namespace all browser-owned ratings and future layout state so
