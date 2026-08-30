@@ -54,6 +54,18 @@ describe('sanitizeUserState', () => {
     expect(s.bookmarks).toEqual({ b: 'to-learn', c: 'have-learned' });
     expect(s.expanded).toEqual(['algebra', 'geometry']);
   });
+
+  it('keeps a valid normalized band position and clamps it to the band', () => {
+    expect(sanitizeUserState({
+      positionOffsets: {
+        a: { dx: 1, dy: 2, bandFraction: 0.4 },
+        b: { dx: 3, dy: 4, bandOffsetY: 180, bandFraction: 8 },
+      },
+    }).positionOffsets).toEqual({
+      a: { dx: 1, dy: 2, bandFraction: 0.4 },
+      b: { dx: 3, dy: 4, bandOffsetY: 180, bandFraction: 1 },
+    });
+  });
 });
 
 describe('load/save round trip', () => {
@@ -61,6 +73,7 @@ describe('load/save round trip', () => {
     const storage = memoryStorage();
     const state = emptyUserState();
     state.positionOffsets.n1 = { dx: 10, dy: 20 };
+    state.layoutAnchor = 'n1';
     state.bookmarks.n2 = 'to-learn';
     state.expanded = ['cat'];
     saveUserState(state, storage);

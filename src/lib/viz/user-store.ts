@@ -23,10 +23,15 @@ export type Bookmark = 'to-learn' | 'have-learned';
 export interface Offset {
   dx: number;
   dy: number;
+  /** Vertical position relative to the top of the node's maturity band. */
+  bandOffsetY?: number;
+  /** Preferred zone-relative vertical coordinate for responsive restoration. */
+  bandFraction?: number;
 }
 
 export interface UserState {
   positionOffsets: Record<string, Offset>;
+  layoutAnchor: string | null;
   bookmarks: Record<string, Bookmark>;
   expanded: string[];
   /** "Stratify by level" mode; defaults to on. */
@@ -39,7 +44,7 @@ export interface StorageLike {
 }
 
 export function emptyUserState(): UserState {
-  return { positionOffsets: {}, bookmarks: {}, expanded: [], stratify: true };
+  return { positionOffsets: {}, layoutAnchor: null, bookmarks: {}, expanded: [], stratify: true };
 }
 
 /** Clamp an offset's magnitude (model units); direction is preserved. */
@@ -67,7 +72,16 @@ export function sanitizeUserState(raw: unknown): UserState {
         Number.isFinite((v as Offset).dx) &&
         Number.isFinite((v as Offset).dy)
       ) {
-        out.positionOffsets[id] = { dx: (v as Offset).dx, dy: (v as Offset).dy };
+        const bandFraction = (v as Offset).bandFraction;
+        const bandOffsetY = (v as Offset).bandOffsetY;
+        out.positionOffsets[id] = {
+          dx: (v as Offset).dx,
+          dy: (v as Offset).dy,
+          ...(Number.isFinite(bandOffsetY) ? { bandOffsetY } : {}),
+          ...(Number.isFinite(bandFraction)
+            ? { bandFraction: Math.max(0, Math.min(1, bandFraction!)) }
+            : {}),
+        };
       }
     }
   }
@@ -82,6 +96,8 @@ export function sanitizeUserState(raw: unknown): UserState {
   if (Array.isArray(r.expanded)) {
     out.expanded = r.expanded.filter((id): id is string => typeof id === 'string');
   }
+
+  if (typeof r.layoutAnchor === 'string') out.layoutAnchor = r.layoutAnchor;
 
   if (typeof r.stratify === 'boolean') out.stratify = r.stratify;
 
@@ -160,9 +176,15 @@ export class UserStore {
     this.schedule();
   }
 
+  setLayoutAnchor(id: string | null): void {
+    this.state.layoutAnchor = id;
+    this.schedule();
+  }
+
   /** "Reset layout": drop every position offset; bookmarks stay untouched. */
   clearOffsets(): void {
     this.state.positionOffsets = {};
+    this.state.layoutAnchor = null;
     this.schedule();
   }
 

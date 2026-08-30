@@ -64,13 +64,24 @@ version under the title.
   bands are shown in data order, including empty bands. Every group has one
   explicit data-defined maturity level and must reside wholly in that zone;
   concepts and nested groups must match their immediate parent's level. A
-  subject spanning levels is represented by sibling groups such as Elementary
-  Algebra and High School Algebra, never by one cross-zone container.
+  subject spanning levels is represented by sibling groups such as
+  `elementary-algebra` and `high-school-algebra`, never by one cross-zone
+  container.
+- A group's visible title omits its maturity-level name because the containing
+  band already supplies that context. Add a level or other qualifying prefix
+  only when it is needed to distinguish otherwise-identical group titles
+  within the same maturity band; stable group ids remain distinct across all
+  bands regardless of their display labels.
 - Client-side layout is responsive while prioritizing readability and a clear
   top-to-bottom maturity flow over filling the full width. Nodes and labels
   must remain comfortably legible at the initial fit, ranks should form a
   narrower vertical composition, and empty maturity bands may be compacted to
   avoid large unused areas while remaining visible.
+- Automatic layout keeps Dagre's dependency-aware, crossing-reduced
+  left-to-right rank order, then compacts each rank toward the graph
+  centerline without overlap. The explicit **Layout Now** control clears saved
+  drag offsets and recomputes this compact layout for the current visible
+  graph.
 - Dense views such as **Expand all** wrap nodes into maturity-band rows whose
   model width is capped to the current viewport. Extra content grows
   vertically, opens aligned to the earliest visible maturity band, and may
@@ -131,9 +142,12 @@ version under the title.
   distance-decayed spring response and a brief settling motion after release.
   Reduced-motion users receive direct node dragging without coupled animation.
   Child rearrangements are retained by node id when their group is closed and
-  reopened. Saved positions are relative to the group anchor and normalized
-  within maturity bands so they survive responsive resizing; they remain
-  session-only until the separate browser-persistence checkpoint.
+  reopened. Saved positions are relative to the group anchor and maturity-band
+  origin so they survive responsive resizing and can recreate a band expanded
+  by downward dragging. Drag offsets for
+  the directly moved block and any collision- or dependency-propagated blocks
+  are persisted in domain-namespaced browser local storage and restored from a
+  fresh computed layout after refresh; stale ids are safely ignored.
 - Layout coordinates form an affine transform tree. A block stores coordinates
   relative to its immediate parent; rendered graph coordinates are obtained by
   composing the transforms along root → maturity zone → group → nested group →
@@ -177,8 +191,7 @@ version under the title.
    dynamically content-derived maturity zones, single-zone groups, composed
    parent-local transforms, session close/reopen layout retention, and locally
    persisted aware/familiar/mastered self-evaluation.
-4. **Persistence and study controls:** locally persisted positions resilient to
-   added or removed nodes, `to-learn` / `have-learned` bookmarks, schema-backed
+4. **Persistence and study controls:** `to-learn` / `have-learned` bookmarks, schema-backed
    median time-to-familiarity estimates, and prerequisite-frontier calculations
    from the user's locally stored knowledge ratings.
 5. **Graph meaning and history:** weighted aggregate group-edge styling,
@@ -237,7 +250,7 @@ version under the title.
 - [ ] URL state (deep links to a selected node / expansion state)
 - [ ] Smooth guided animations when expanding groups
 - [ ] Local `to-learn` / `have-learned` bookmarks for an interactive study guide
-- [ ] Persist user rearrangements locally by node id, retaining positions across
+- [x] Persist user rearrangements locally by node id, retaining positions across
       knowledge-base additions and safely ignoring removed nodes
 
 ## v0.4 — Depth

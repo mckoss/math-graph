@@ -211,6 +211,31 @@ describe('knowledge-base graph invariants', () => {
     }
   });
 
+  it('omits redundant maturity-level prefixes from group labels', () => {
+    for (const bundledGraph of bundledGraphs) {
+      const groupsByLevel = new Map<string | undefined, GraphNode[]>();
+      for (const group of bundledGraph.nodes.filter((node) => node.isGroup)) {
+        const levelGroups = groupsByLevel.get(group.maturityLevel) ?? [];
+        levelGroups.push(group);
+        groupsByLevel.set(group.maturityLevel, levelGroups);
+      }
+
+      for (const level of bundledGraph.maturityLevels) {
+        const levelGroups = groupsByLevel.get(level.id) ?? [];
+        for (const group of levelGroups) {
+          const prefix = `${level.label} `;
+          if (!group.label.startsWith(prefix)) continue;
+
+          const unprefixed = group.label.slice(prefix.length);
+          const needsPrefix = levelGroups.some(
+            (candidate) => candidate.id !== group.id && candidate.label === unprefixed,
+          );
+          expect(needsPrefix, `${bundledGraph.metadata.id}:${group.id}`).toBe(true);
+        }
+      }
+    }
+  });
+
   it('uses unique configured maturity levels and valid concept references', () => {
     const ids = graph.maturityLevels.map((level) => level.id);
     const orders = graph.maturityLevels.map((level) => level.order);

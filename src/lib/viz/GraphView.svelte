@@ -15,6 +15,7 @@
     type VisibleGraph,
   } from './graph-model';
   import { groupPaint, maturityPaint, orderedMaturityLevels } from './colors';
+  import { compactRanksTowardCenterline } from './centerline-layout';
   import {
     assignMaturityBands,
     clampPointToMaturityBand,
@@ -54,6 +55,7 @@
     countVerticalDependencyOrderViolations,
     enforceVerticalDependencyOrder,
   } from './vertical-order';
+  import { clampOffset, UserStore } from './user-store';
 
   cytoscape.use(dagre);
 
@@ -81,7 +83,10 @@
   let verticalOrderViolationCount = $state(0);
   let savedLayoutNodeCount = $state(0);
   let restoredLayoutNodeCount = $state(0);
+  let restoredUserPositionCount = $state(0);
   const savedGroupLayouts = new Map<string, Map<string, SavedLocalPosition>>();
+  const layoutBaselines = new Map<string, cytoscape.Position>();
+  let userStore: UserStore | undefined;
   let infoButtons = $state<Array<{
     id: string;
     label: string;
@@ -98,9 +103,107 @@
   const FIT_PADDING = 36;
   const LAYOUT_MS = 480;
   const DEPENDENCY_GAP = 12;
+  const MAX_PERSISTED_OFFSET = 10_000;
+
+  function currentUserStore(): UserStore {
+    userStore ??= new UserStore(undefined, 250, graph.metadata.id);
+    return userStore;
+  }
 
   function containerSize(): Size {
     return { width: container.clientWidth, height: container.clientHeight };
+  }
+
+  /** Apply domain-scoped drag offsets to a freshly computed layout baseline. */
+  function restoreUserPositions(
+    nodes: cytoscape.NodeCollection,
+    targets: Map<string, cytoscape.Position>,
+    ids?: ReadonlySet<string>,
+  ): void {
+    let restoredCount = 0;
+    nodes.forEach((node) => {
+      if (ids !== undefined && !ids.has(node.id())) return;
+      const baseline = targets.get(node.id()) ?? node.position();
+      layoutBaselines.set(node.id(), { ...baseline });
+      const stored = currentUserStore().state.positionOffsets[node.id()];
+      if (stored === undefined) return;
+      restoredCount += 1;
+      const offset = clampOffset(stored, MAX_PERSISTED_OFFSET);
+      const band = bandAssignments.get(node.id()) ?? 0;
+      const bandRect = bandModelRects[band];
+      const restored = stored.bandOffsetY !== undefined && bandRect !== undefined
+        ? { x: baseline.x + offset.dx, y: bandRect.y1 + stored.bandOffsetY }
+        : stored.bandFraction === undefined
+        ? undefined
+        : restoreLocalLayout(
+            baseline.x,
+            new Map([[node.id(), { dx: offset.dx, bandFraction: stored.bandFraction }]]),
+            [{
+              id: node.id(),
+              band,
+              point: baseline,
+              width: node.outerWidth(),
+              height: node.outerHeight(),
+            }],
+            bandModelRects,
+          ).get(node.id());
+      targets.set(
+        node.id(),
+        restored ?? { x: baseline.x + offset.dx, y: baseline.y + offset.dy },
+      );
+    });
+    restoredUserPositionCount = ids === undefined
+      ? restoredCount
+      : restoredUserPositionCount + restoredCount;
+  }
+
+  /** Persist every visible movement caused by a drag, including pushed peers. */
+  function rootUnitId(node: cytoscape.NodeSingular): string {
+    let root = node;
+    while (root.parent().nonempty()) root = root.parent()[0];
+    return root.id();
+  }
+
+  function persistVisiblePositions(draggedNode: cytoscape.NodeSingular): void {
+    const c = cy;
+    if (!c) return;
+    c.nodes().not(':parent').forEach((node) => {
+      const baseline = layoutBaselines.get(node.id());
+      if (baseline === undefined) return;
+      const offset = {
+        dx: node.position().x - baseline.x,
+        dy: node.position().y - baseline.y,
+      };
+      const band = bandAssignments.get(node.id()) ?? 0;
+      const local = captureLocalLayout(
+        baseline.x,
+        [{
+          id: node.id(),
+          band,
+          point: node.position(),
+          width: node.outerWidth(),
+          height: node.outerHeight(),
+        }],
+        bandModelRects,
+      ).get(node.id());
+      const bandRect = bandModelRects[band];
+      currentUserStore().setOffset(
+        node.id(),
+        Math.hypot(offset.dx, offset.dy) < 0.5
+          ? null
+          : {
+              ...clampOffset(offset, MAX_PERSISTED_OFFSET),
+              ...(bandRect === undefined
+                ? {}
+                : { bandOffsetY: node.position().y - bandRect.y1 }),
+              ...(local === undefined ? {} : { bandFraction: local.bandFraction }),
+            },
+      );
+    });
+    currentUserStore().setLayoutAnchor(rootUnitId(draggedNode));
+    // A refresh can immediately follow pointer release, so do not leave the
+    // final drag state waiting on the normal debounce timer.
+    currentUserStore().flush();
   }
 
   const byId = $derived(nodesById(graph));
@@ -137,6 +240,17 @@
       { zoom: { level, renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 } } },
       { duration: 180, easing: 'ease-out' },
     );
+  }
+
+  export function layoutNow(): void {
+    currentUserStore().clearOffsets();
+    currentUserStore().flush();
+    layoutBaselines.clear();
+    savedGroupLayouts.clear();
+    savedLayoutNodeCount = 0;
+    restoredLayoutNodeCount = 0;
+    restoredUserPositionCount = 0;
+    runLayout(false);
   }
 
   // ---- Element construction ------------------------------------------------
@@ -691,9 +805,12 @@
     const c = cy;
     if (!c || node.isParent()) return;
     const band = bandAssignments.get(node.id()) ?? 0;
+    const upstreamIds = visibleUpstreamIds(c, node.id());
     const peers = c.nodes().not(':parent')
       .filter((candidate) =>
-        candidate.id() !== node.id() && (bandAssignments.get(candidate.id()) ?? 0) === band,
+        candidate.id() !== node.id() &&
+        !upstreamIds.has(candidate.id()) &&
+        (bandAssignments.get(candidate.id()) ?? 0) === band,
       )
       .map((candidate: cytoscape.NodeSingular) => ({
         id: candidate.id(),
@@ -894,6 +1011,15 @@
       } else {
         packFocusedDescendants(styledFocusNode, focusAnchor.x, targets);
       }
+      const newlyVisibleIds = new Set(
+        layoutNodes
+          .filter((node) => !previousPositions.has(node.id()))
+          .map((node) => node.id()),
+      );
+      // The in-memory group layout already contains the user's offsets. Apply
+      // persisted offsets only on a fresh expansion after page load, otherwise
+      // the same child drag would be counted twice on close/reopen.
+      if (saved === undefined) restoreUserPositions(layoutNodes, targets, newlyVisibleIds);
       layoutNodes.positions((node) => targets.get(node.id()) ?? node.position());
       anchorFocusedGroupX(styledFocusNode, focusAnchor.x, targets);
       enforceVerticalOrderForTargets(layoutNodes, targets);
@@ -1038,9 +1164,19 @@
       ? packMaturityBandNodes(nodeBoxes, bandModelRects, Math.max(240, size.width - 2 * FIT_PADDING))
       : separateMaturityBandNodes(nodeBoxes, bandModelRects);
     separated.forEach((point, id) => targets.set(id, point));
+    const targetXs = [...targets.values()].map((point) => point.x);
+    const centerX = targetXs.length === 0
+      ? 0
+      : (Math.min(...targetXs) + Math.max(...targetXs)) / 2;
+    const compacted = compactRanksTowardCenterline(
+      nodeBoxes.map((node) => ({ ...node, point: targets.get(node.id) ?? node.point })),
+      centerX,
+    );
+    compacted.forEach((point, id) => targets.set(id, point));
     if (styledFocusNode?.nonempty() && focusAnchor !== undefined && styledFocusNode.isParent()) {
       packFocusedDescendants(styledFocusNode, focusAnchor.x, targets);
     }
+    restoreUserPositions(layoutNodes, targets);
     layoutNodes.positions((node) => targets.get(node.id()) ?? node.position());
     const focusNode = focusId === undefined ? undefined : c.getElementById(focusId);
     if (focusNode?.nonempty() && focusAnchor !== undefined && focusNode.isParent()) {
@@ -1051,7 +1187,11 @@
       anchorFocusedGroupX(focusNode, focusAnchor.x, targets);
     }
     deriveBandsForTargets(layoutNodes, targets);
-    rootOverlapCount = resolveRootUnitOverlaps(c, targets, focusId);
+    rootOverlapCount = resolveRootUnitOverlaps(
+      c,
+      targets,
+      focusId ?? currentUserStore().state.layoutAnchor ?? undefined,
+    );
     layoutBounds = targetBBox(c, targets);
     focusAnchorDeltaX =
       focusNode?.nonempty() && focusAnchor !== undefined
@@ -1104,6 +1244,24 @@
   let settleFrameId = 0;
   let dragPending = false;
   let prefersReducedMotion = false;
+
+  function visibleUpstreamIds(c: cytoscape.Core, nodeId: string): Set<string> {
+    const incomingByTarget = new Map<string, string[]>();
+    for (const edge of currentVisibleEdges(c)) {
+      const incoming = incomingByTarget.get(edge.to) ?? [];
+      incoming.push(edge.from);
+      incomingByTarget.set(edge.to, incoming);
+    }
+    const upstream = new Set<string>();
+    const frontier = [...(incomingByTarget.get(nodeId) ?? [])];
+    while (frontier.length > 0) {
+      const id = frontier.pop()!;
+      if (upstream.has(id)) continue;
+      upstream.add(id);
+      frontier.push(...(incomingByTarget.get(id) ?? []));
+    }
+    return upstream;
+  }
 
   function constrainedPoint(
     node: cytoscape.NodeSingular,
@@ -1190,20 +1348,7 @@
     }
     if (ordered.length < 2) return;
 
-    const incomingByTarget = new Map<string, string[]>();
-    for (const edge of currentVisibleEdges(c)) {
-      const incoming = incomingByTarget.get(edge.to) ?? [];
-      incoming.push(edge.from);
-      incomingByTarget.set(edge.to, incoming);
-    }
-    springUpstreamIds = new Set();
-    const upstreamFrontier = [...(incomingByTarget.get(node.id()) ?? [])];
-    while (upstreamFrontier.length > 0) {
-      const id = upstreamFrontier.pop()!;
-      if (springUpstreamIds.has(id)) continue;
-      springUpstreamIds.add(id);
-      upstreamFrontier.push(...(incomingByTarget.get(id) ?? []));
-    }
+    springUpstreamIds = visibleUpstreamIds(c, node.id());
 
     const index = new Map(ordered.map((candidate, i) => [candidate.id(), i]));
     const inputs: SpringNodeInput[] = ordered.map((candidate) => {
@@ -1282,6 +1427,7 @@
       } else {
         resolveCurrentRootCollisions(anchorNode.id());
       }
+      persistVisiblePositions(anchorNode);
       cancelSprings();
     }
   }
@@ -1505,6 +1651,7 @@
       } else {
         resolveCurrentRootCollisions(e.target.id());
       }
+      persistVisiblePositions(e.target);
     });
 
     // Re-run layout after meaningful size changes, including orientation flips.
@@ -1528,6 +1675,7 @@
       resizeObserver.disconnect();
       if (resizeTimer !== undefined) clearTimeout(resizeTimer);
       cancelSprings();
+      userStore?.flush();
       if (infoButtonFrame !== 0) cancelAnimationFrame(infoButtonFrame);
       infoButtonFrame = 0;
       infoButtons = [];
@@ -1567,6 +1715,7 @@
   data-vertical-order-violation-count={verticalOrderViolationCount}
   data-saved-layout-node-count={savedLayoutNodeCount}
   data-restored-layout-node-count={restoredLayoutNodeCount}
+  data-restored-user-position-count={restoredUserPositionCount}
 >
   <div class="bands" role="list" aria-label="Knowledge levels">
     {#each bandStripes as stripe (stripe.level.id)}

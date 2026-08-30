@@ -167,6 +167,7 @@
         <button class="ctl" title="Fit to view" aria-label="Fit to view" onclick={() => graphView?.fit()}>⛶</button>
       </div>
       <div class="control-group">
+        <button class="ctl wide" onclick={() => graphView?.layoutNow()}>Layout Now</button>
         <button class="ctl wide" onclick={expandAll}>⊞ Expand all</button>
         <button class="ctl wide" onclick={collapseAll}>⊟ Collapse all</button>
       </div>

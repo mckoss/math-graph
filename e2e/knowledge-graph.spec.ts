@@ -18,6 +18,9 @@ test('presents and operates the Knowledge Graph Math domain', async ({ page }) =
   await expect(domain.locator('option')).toHaveText(['Math', 'Physics']);
   await expect(page.getByText('94 concepts', { exact: true })).toBeVisible();
   await expect(page.getByText('163 connections', { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'More information about Algebra', exact: true }),
+  ).toHaveCount(2);
 
   const bands = page.locator('[role="list"][aria-label="Knowledge levels"] .band');
   await expect(bands).toHaveCount(4);
@@ -141,7 +144,7 @@ test('presents and operates the Knowledge Graph Math domain', async ({ page }) =
   await expect(status).toHaveText(collapsedStatus!);
   await page.waitForTimeout(600);
   await page.getByRole('button', { name: 'Fit to view' }).click();
-  await page.waitForTimeout(220);
+  await page.waitForTimeout(600);
   await expect(numbersInfo).toBeVisible();
   const reopenedVizBounds = await visualization.boundingBox();
   expect(reopenedVizBounds).not.toBeNull();
@@ -220,6 +223,111 @@ test('persists recursive aware, familiar, and mastered self-evaluations', async 
       .getByRole('group', { name: 'Your knowledge of Numbers & Counting' })
       .getByRole('button', { name: 'Mastered' }),
   ).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('restores user-dragged layout positions after refresh', async ({ page }) => {
+  await page.goto('./');
+  const visualization = page.locator('.viz');
+  const arithmetic = page.getByRole('button', {
+    name: 'More information about Arithmetic',
+    exact: true,
+  });
+  const numbers = page.getByRole('button', {
+    name: 'More information about Numbers & Counting',
+    exact: true,
+  });
+  await expect(arithmetic).toBeVisible();
+
+  const vizBounds = await visualization.boundingBox();
+  expect(vizBounds).not.toBeNull();
+  const startX = Number(await arithmetic.getAttribute('data-node-model-x'));
+  const renderedX = vizBounds!.x + Number(await arithmetic.getAttribute('data-node-center-x'));
+  const renderedY = vizBounds!.y + Number(await arithmetic.getAttribute('data-node-center-y'));
+  await page.mouse.move(renderedX, renderedY);
+  await page.mouse.down();
+  await page.mouse.move(renderedX + 260, renderedY, { steps: 24 });
+  await page.mouse.up();
+  await expect
+    .poll(async () => Number(await arithmetic.getAttribute('data-node-model-x')))
+    .toBeGreaterThan(startX + 100);
+  await page.waitForTimeout(900);
+
+  const storedOffset = await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('knowledge-graph:math:user:v1') ?? '{}');
+    return state.positionOffsets?.arithmetic;
+  });
+  expect(storedOffset?.dx).toBeGreaterThan(100);
+
+  await page.reload();
+  await expect(arithmetic).toBeVisible();
+  await expect
+    .poll(async () => Number(await visualization.getAttribute('data-restored-user-position-count')))
+    .toBeGreaterThan(0);
+  const restoredOffsetFromNumbers =
+    Number(await arithmetic.getAttribute('data-node-model-x')) -
+    Number(await numbers.getAttribute('data-node-model-x'));
+
+  await page.getByRole('button', { name: 'Layout Now', exact: true }).click();
+  await page.waitForTimeout(600);
+  const resetOffsetFromNumbers =
+    Number(await arithmetic.getAttribute('data-node-model-x')) -
+    Number(await numbers.getAttribute('data-node-model-x'));
+  expect(Math.abs(restoredOffsetFromNumbers - resetOffsetFromNumbers)).toBeGreaterThan(100);
+  const resetState = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('knowledge-graph:math:user:v1') ?? '{}'),
+  );
+  expect(resetState.positionOffsets).toEqual({});
+  expect(resetState.layoutAnchor).toBeNull();
+});
+
+test('restores a block dragged downward and re-expands its maturity band', async ({ page }) => {
+  await page.goto('./');
+  const visualization = page.locator('.viz');
+  const arithmetic = page.getByRole('button', {
+    name: 'More information about Arithmetic',
+    exact: true,
+  });
+  const numbers = page.getByRole('button', {
+    name: 'More information about Numbers & Counting',
+    exact: true,
+  });
+  await expect(arithmetic).toBeVisible();
+
+  const vizBounds = await visualization.boundingBox();
+  expect(vizBounds).not.toBeNull();
+  const startY = Number(await arithmetic.getAttribute('data-node-model-y'));
+  const renderedX = vizBounds!.x + Number(await arithmetic.getAttribute('data-node-center-x'));
+  const renderedY = vizBounds!.y + Number(await arithmetic.getAttribute('data-node-center-y'));
+  await page.mouse.move(renderedX, renderedY);
+  await page.mouse.down();
+  await page.mouse.move(renderedX, renderedY + 220, { steps: 24 });
+  await page.mouse.up();
+  await expect
+    .poll(async () => Number(await arithmetic.getAttribute('data-node-model-y')))
+    .toBeGreaterThan(startY + 100);
+  await page.waitForTimeout(900);
+
+  const storedPosition = await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('knowledge-graph:math:user:v1') ?? '{}');
+    return state.positionOffsets?.arithmetic;
+  });
+  expect(storedPosition?.bandOffsetY).toBeGreaterThan(0);
+
+  await page.reload();
+  await expect(arithmetic).toBeVisible();
+  await expect
+    .poll(async () => Number(await visualization.getAttribute('data-restored-user-position-count')))
+    .toBeGreaterThan(0);
+  const restoredVerticalOffset =
+    Number(await arithmetic.getAttribute('data-node-model-y')) -
+    Number(await numbers.getAttribute('data-node-model-y'));
+
+  await page.getByRole('button', { name: 'Layout Now', exact: true }).click();
+  await page.waitForTimeout(600);
+  const resetVerticalOffset =
+    Number(await arithmetic.getAttribute('data-node-model-y')) -
+    Number(await numbers.getAttribute('data-node-model-y'));
+  expect(restoredVerticalOffset - resetVerticalOffset).toBeGreaterThan(100);
 });
 
 test('switches between independent knowledge domains', async ({ page }) => {
@@ -325,6 +433,10 @@ test('keeps every block strictly below all visible prerequisites while dragging'
   };
 
   const countingRenderedY = Number(await counting.getAttribute('data-node-center-y'));
+  const countingPositionBeforeChildDrag = {
+    x: Number(await counting.getAttribute('data-node-model-x')),
+    y: Number(await counting.getAttribute('data-node-model-y')),
+  };
   await dragToRenderedY(naturalNumbers, countingRenderedY - 80);
   const dependencyClearance =
     (Number(await counting.getAttribute('data-node-model-height')) +
@@ -337,6 +449,14 @@ test('keeps every block strictly below all visible prerequisites while dragging'
       Number(await counting.getAttribute('data-node-model-y')) + dependencyClearance - 0.01,
     );
   await expect(visualization).toHaveAttribute('data-vertical-order-violation-count', '0');
+  expect(Number(await counting.getAttribute('data-node-model-x'))).toBeCloseTo(
+    countingPositionBeforeChildDrag.x,
+    2,
+  );
+  expect(Number(await counting.getAttribute('data-node-model-y'))).toBeCloseTo(
+    countingPositionBeforeChildDrag.y,
+    2,
+  );
 
   const naturalModelYBeforeDownwardDrag = Number(
     await naturalNumbers.getAttribute('data-node-model-y'),

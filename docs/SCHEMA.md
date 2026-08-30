@@ -93,7 +93,7 @@ allowing the taxonomy to grow beyond a fixed depth.
 ```yaml
 groups:
   - id: elementary-number-systems
-    label: Elementary Number Systems
+    label: Number Systems
     maturityLevel: elementary
     wikipedia: Number_system
     description: "Successive enlargements of the idea of number."
