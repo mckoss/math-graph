@@ -324,6 +324,50 @@ test('semantic zoom reveals nested Physics subgroups one depth at a time', async
   await expect(motion).toHaveAttribute('data-node-semantic-visible', 'true');
 });
 
+test('semantic zoom derives early reveal points from the loaded graph geometry', async ({ page }) => {
+  await page.setViewportSize({ width: 1200, height: 700 });
+  await page.goto('./');
+  await page.getByRole('combobox', { name: 'Knowledge domain' }).selectOption('cc-math');
+  await page.getByRole('button', { name: 'Fit to view' }).click();
+  await page.waitForTimeout(1000);
+
+  const visualization = page.locator('.viz');
+  const thresholds = (await visualization.getAttribute('data-semantic-zoom-thresholds'))!
+    .split(',')
+    .map(Number);
+  expect(thresholds).toHaveLength(4);
+  expect(thresholds.every((threshold, index) =>
+    index === 0 || threshold > thresholds[index - 1])).toBe(true);
+
+  const fitZoom = Number(await visualization.getAttribute('data-current-zoom'));
+  const largestTopLevelOverview = await page.locator('.node-probe').evaluateAll(
+    (nodes, zoom) => Math.max(...nodes
+      .filter((node) =>
+        node.getAttribute('data-node-parent-id') === '' &&
+        node.getAttribute('data-node-title-mode') === 'overview')
+      .map((node) => Math.max(
+        Number(node.getAttribute('data-node-rendered-width')),
+        Number(node.getAttribute('data-node-rendered-height')),
+      ) / zoom)),
+    fitZoom,
+  );
+  const bounds = await page.locator('.graph').boundingBox();
+  expect(bounds).not.toBeNull();
+  const renderedSizeAtReveal = thresholds[0] * largestTopLevelOverview;
+  const viewportShortSide = Math.min(bounds!.width, bounds!.height);
+  expect(renderedSizeAtReveal).toBeLessThanOrEqual(viewportShortSide * 0.75);
+  expect(renderedSizeAtReveal).toBeGreaterThan(viewportShortSide * 0.65);
+  expect(thresholds[0]).toBeLessThan(0.2);
+  expect(fitZoom).toBeLessThan(thresholds[0]);
+
+  for (let attempt = 0; attempt < 8; attempt++) {
+    if (Number(await visualization.getAttribute('data-semantic-depth')) >= 1) break;
+    await page.getByRole('button', { name: 'Zoom in' }).click();
+    await page.waitForTimeout(220);
+  }
+  await expect(visualization).toHaveAttribute('data-semantic-depth', '1');
+});
+
 test('persists recursive aware, familiar, and mastered self-evaluations', async ({ page }) => {
   await page.goto('./');
   await clickNode(page, 'numbers');

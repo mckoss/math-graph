@@ -53,6 +53,7 @@
   import {
     semanticDepthForZoom,
     semanticProjection,
+    semanticZoomThresholds as deriveSemanticZoomThresholds,
     thresholdForGroupDepth,
   } from './semantic-zoom';
 
@@ -75,6 +76,7 @@
     untrack(() => graph.nodes.filter((node) => node.isGroup).map((node) => node.id)),
   );
   let semanticDepth = $state(0);
+  let semanticZoomThresholds = $state<number[]>([]);
   let compoundGroupCount = $state(0);
   let currentZoom = $state(1);
   let focusAnchorDeltaX = $state(0);
@@ -623,7 +625,10 @@
   }
 
   function applySemanticPresentation(c: cytoscape.Core): void {
-    const depth = Math.min(semanticDepthForZoom(c.zoom()), maximumSemanticDepth());
+    const depth = Math.min(
+      semanticDepthForZoom(c.zoom(), semanticZoomThresholds),
+      maximumSemanticDepth(),
+    );
     semanticDepth = depth;
     c.batch(() => {
       c.nodes().forEach((node: cytoscape.NodeSingular) => {
@@ -1538,6 +1543,19 @@
         y: node.position().y - parent[0].position().y,
       });
     });
+    semanticZoomThresholds = deriveSemanticZoomThresholds(
+      graph.nodes.flatMap((node) => {
+        if (!node.isGroup) return [];
+        const extent = canonicalUnitSizes.get(node.id);
+        return extent === undefined ? [] : [{
+          depth: ancestorsOf(byId, node.id).length,
+          width: extent.width,
+          height: extent.height,
+        }];
+      }),
+      containerSize(),
+      maximumSemanticDepth(),
+    );
     scratch.destroy();
   }
 
@@ -1573,7 +1591,7 @@
       max: Math.max(
         wholeGraphBounds.max,
         viewport.zoom * VIEWPORT_MAX_ZOOM_FACTOR,
-        thresholdForGroupDepth(maximumSemanticDepth() - 1),
+        thresholdForGroupDepth(maximumSemanticDepth() - 1, semanticZoomThresholds),
       ),
     };
     c.minZoom(Math.min(bounds.min, c.zoom()));
@@ -2199,6 +2217,7 @@
   class="viz"
   data-layout-orientation={layoutOrientation}
   data-semantic-depth={semanticDepth}
+  data-semantic-zoom-thresholds={semanticZoomThresholds.join(',')}
   data-global-layout-count={globalLayoutCount}
   data-group-drag-event-count={groupDragEventCount}
   data-grabbed-node-id={grabbedNodeId ?? ''}

@@ -131,9 +131,13 @@ version under the title.
   and semantic-zoom representation changes must never invoke layout or mutate
   canonical geometry. Fit is the explicit way to request a whole-graph camera
   overview.
-- The graph uses global semantic-zoom thresholds by hierarchy depth. The first
-  threshold reveals direct children of top-level groups; each subsequent
-  threshold reveals one deeper subgroup level everywhere in the graph. A group
+- The graph uses global semantic-zoom thresholds by hierarchy depth, derived
+  once when the graph loads from its canonical group envelopes and initial
+  viewport. Each level reveals before its largest overview group outgrows a
+  comfortable share of the viewport, and successive thresholds remain ordered
+  and distinct. The first threshold reveals direct children of top-level
+  groups; each subsequent threshold reveals one deeper subgroup level
+  everywhere in the graph. A group
   below its depth threshold uses its overview representation: its fixed fully
   detailed frame remains in place, descendants are hidden, and a large title
   is centered wholly inside the frame. Once its threshold is crossed, the
