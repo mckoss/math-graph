@@ -1375,18 +1375,26 @@
   function writeSpringPositions(): void {
     const c = cy;
     const system = springSystem;
-    if (!c || !system) return;
+    if (!c || !system || !anchorNode) return;
+    const anchorBand = bandAssignments.get(anchorNode.id()) ?? 0;
     c.batch(() => {
       for (let i = 1; i < springNodes.length; i++) {
-        if (springUpstreamIds.has(springNodes[i].id())) {
-          system.x[i] = springNodes[i].position().x;
-          system.y[i] = springNodes[i].position().y;
+        const springNode = springNodes[i];
+        // Maturity zones have independent, content-derived vertical geometry.
+        // A spring response must not resize an adjacent zone by pulling one of
+        // its blocks while the directly manipulated block remains pinned.
+        if (
+          springUpstreamIds.has(springNode.id()) ||
+          (bandAssignments.get(springNode.id()) ?? 0) !== anchorBand
+        ) {
+          system.x[i] = springNode.position().x;
+          system.y[i] = springNode.position().y;
           continue;
         }
-        const point = constrainedPoint(springNodes[i], { x: system.x[i], y: system.y[i] });
+        const point = constrainedPoint(springNode, { x: system.x[i], y: system.y[i] });
         system.x[i] = point.x;
         system.y[i] = point.y;
-        springNodes[i].position(point);
+        springNode.position(point);
       }
     });
   }
@@ -1744,6 +1752,7 @@
         type="button"
         aria-label={`More information about ${button.label}`}
         title={`More information about ${button.label}`}
+        data-node-id={button.id}
         data-node-center-x={button.nodeCenterX}
         data-node-center-y={button.nodeCenterY}
         data-node-model-x={button.modelX}

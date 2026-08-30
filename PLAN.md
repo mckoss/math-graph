@@ -140,6 +140,9 @@ version under the title.
   number is explainable.
 - Dragging a node gives its visible two-hop neighborhood a subtle,
   distance-decayed spring response and a brief settling motion after release.
+  Spring followers are limited to the directly manipulated block's maturity
+  zone; dragging must never resize another zone by moving one of that zone's
+  blocks as a secondary animation effect.
   Reduced-motion users receive direct node dragging without coupled animation.
   Child rearrangements are retained by node id when their group is closed and
   reopened. Saved positions are relative to the group anchor and maturity-band

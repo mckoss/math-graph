@@ -473,3 +473,31 @@ test('keeps every block strictly below all visible prerequisites while dragging'
     );
   await expect(visualization).toHaveAttribute('data-vertical-order-violation-count', '0');
 });
+
+test('does not expand the preceding knowledge level when a node is dragged upward', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await page.waitForTimeout(700);
+  const elementaryBand = page.locator('.band[data-maturity-level="elementary"]');
+  const highSchoolBand = page.locator('.band[data-maturity-level="high-school"]');
+  const geometry = page.locator('.node-info[data-node-id="high-school-geometry"]');
+  const before = await elementaryBand.boundingBox();
+  const ownBand = await highSchoolBand.boundingBox();
+  const geometryBounds = await geometry.boundingBox();
+  expect(before).not.toBeNull();
+  expect(ownBand).not.toBeNull();
+  expect(geometryBounds).not.toBeNull();
+
+  const startX = geometryBounds!.x - 28;
+  const startY = geometryBounds!.y + 18;
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX, ownBand!.y + 12, { steps: 24 });
+  await page.waitForTimeout(200);
+
+  const whilePinned = await elementaryBand.boundingBox();
+  expect(whilePinned).not.toBeNull();
+  expect(whilePinned!.height).toBeLessThanOrEqual(before!.height + 2);
+  await page.mouse.up();
+});
